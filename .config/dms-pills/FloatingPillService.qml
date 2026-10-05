@@ -23,6 +23,7 @@ Singleton {
     property size dragSize: Qt.size(0, 0)
     property point dragPos: Qt.point(0, 0)
     property string _dragSolo: "" // ver _solo()
+    property bool _dragWhole: false // se arrastra la píldora entera (dragSize ya incluye su relleno)
     property var hint: null // { x, y, w, h, kind: "insert"|"new"|"blocked", target: {x,y,w,h} }
 
     // Reparto por borde para que las píldoras no se monten: cada ventana publica dónde querría estar
@@ -35,7 +36,8 @@ Singleton {
     property var obstacles: ({})
     property var rects: ({})
     property bool _resolvePending: false
-    readonly property real pillGap: 8
+    // 5 px a la vista: el borde redondeado (antialias) se come ~1 px de cada píldora, entre rects van 3
+    readonly property real pillGap: 3
 
     // Medidas de la barra (las fija DankBarContent): grosor de píldora y margen al borde
     property real thick: 36
@@ -63,9 +65,15 @@ Singleton {
 
     // owner: la ventana que publica. Al mover una píldora se crea la ventana nueva antes de destruir la vieja
     // (mismo id); forget solo borra si lo publicado sigue siendo de quien olvida.
+    // d null: no participa en el reparto (p. ej. oculta, sin widgets visibles)
     function setDesired(id, d, owner) {
+        if (!d && !desired[id])
+            return;
         const next = Object.assign({}, desired);
-        next[id] = Object.assign({ owner: owner }, d);
+        if (d)
+            next[id] = Object.assign({ owner: owner }, d);
+        else
+            delete next[id];
         desired = next;
         _resolveLater();
     }
@@ -204,7 +212,7 @@ Singleton {
                     const c = (sp[0] + sp[1]) / 2;
                     return c > it.start + cells[0][1] && c < it.start + cells[cells.length - 1][0];
                 });
-                if (io >= 0) {
+                if (io >= 0) { 
                     const c = (spans[io][0] + spans[io][1]) / 2;
                     const n = Math.max(1, Math.min(cells.length - 1, cells.filter(x => it.start + (x[0] + x[1]) / 2 < c).length));
                     const rOff = cells[n][0] - pad;
@@ -348,7 +356,7 @@ Singleton {
         const vert = edge === "left" || edge === "right";
         const S = vert ? sh : sw, lo = margin, hi = S - margin;
         let start = align === "center" ? pos - len / 2 : (align === "end" ? pos - len : pos);
-        start = Math.max(lo, Math.min(hi - len, start));
+        start = Math.round(Math.max(lo, Math.min(hi - len, start)));
         const m = margin + 1;
         const cross = edge === "top" ? m : (edge === "bottom" ? sh - m - thick : (edge === "left" ? m : sw - m - thick));
         return vert ? { x: cross, y: start, w: thick, h: len } : { x: start, y: cross, w: len, h: thick };
@@ -374,7 +382,9 @@ Singleton {
     function _newLen(edge) {
         const vert = edge === "left" || edge === "right";
         const w = dragSize.width || 40, h = dragSize.height || 36;
-        return vert ? Math.max(thick, (w > h ? thick : h) + pad * 2) : (w > h ? w : thick) + pad * 2;
+        if (_dragWhole)
+            return Math.max(thick, w, h);
+        return vert ? Math.max(thick, (w > h ? thick : h) + pad * 2) : Math.max(thick, w + pad * 2);
     }
 
     // Id de la píldora que se mueve entera (arrastre de la píldora, o de su único widget): no puede ser su propio destino
@@ -408,6 +418,11 @@ Singleton {
         dragSize = Qt.size(item.width, item.height);
         dragImage = "";
         _dragSolo = _solo(barId, src);
+        // Píldora de un solo widget: se mueve entera, con su largo real (no el del widget más un relleno aproximado)
+        const pr = _dragSolo ? rects[_dragSolo + "@" + screen] : null;
+        if (pr)
+            dragSize = Qt.size(pr.w, pr.h);
+        _dragWhole = !!src.whole || !!pr;
         item.grabToImage(r => root.dragImage = r.url);
         dragActive = true;
     }
@@ -451,6 +466,15 @@ Singleton {
         });
     }
 
+    // La barra es la misma en todas las pantallas y las píldoras son de cada una: un widget que entra a la barra
+    // se quita de las píldoras de las otras pantallas (si no, sale dos veces allí).
+    function _intoBar(pills, screen, widgets) {
+        const ids = widgets.map(w => w?.id ?? w);
+        for (const p of pills)
+            if (p.screen !== screen)
+                p.widgets = p.widgets.filter(w => !ids.includes(w?.id ?? w));
+    }
+
     // src: { kind: "bar", section, index } | { kind: "pill", pillId, index }
     // Sobre una píldora (de la barra o suelta) -> se inserta ahí en esa posición;
     // si no -> píldora nueva en el borde más cercano, donde se soltó (si ahí hay otra, no hace nada).
@@ -484,6 +508,8 @@ Singleton {
                 return;
             const entry = from.splice(src.index, 1)[0];
             to.splice(Math.min(at, to.length), 0, entry);
+            if (t.hit.container.kind === "bar" && src.kind === "pill")
+                _intoBar(pills, screen, [entry]);
         } else if (solo) {
             // Único widget de la píldora: se mueve la píldora entera
             _setPlace(pills.find(p => p.id === solo), t);
@@ -523,7 +549,9 @@ Singleton {
             to = updates[k] = JSON.parse(JSON.stringify(cfg[k] || []));
         }
         to.splice(Math.min(t.hit.index, to.length), 0, ...p.widgets);
-        updates.floatingPills = pills.filter(q => q.id !== pillId);
+        if (t.hit.container.kind === "bar")
+            _intoBar(pills, screen, p.widgets);
+        updates.floatingPills = pills.filter(q => q.id !== pillId && q.widgets.length > 0);
         SettingsData.updateBarConfig(barId, updates);
     }
 

@@ -16,7 +16,8 @@
     "videoMic": "default",
     "videoFormat": "mp4",
     "recordAudio": false,
-    "copyVideoFile": false
+    "copyVideoFile": false,
+    "videoMonitor": "HDMI-A-1"
   },
   "whatsappButton": {
     "enabled": true

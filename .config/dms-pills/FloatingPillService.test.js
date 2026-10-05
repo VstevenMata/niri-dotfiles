@@ -5,7 +5,7 @@ let src = fs.readFileSync(__dirname + '/FloatingPillService.qml', 'utf8');
 src = src.slice(src.indexOf('function register'), src.lastIndexOf('}'));
 let cfg; const SettingsData = { getBarConfig: () => cfg, updateBarConfig: (id, u) => Object.assign(cfg, JSON.parse(JSON.stringify(u))) };
 const Qt = { callLater: () => {} };
-var handles = [], rects = {}, desired = {}, resolved = {}, dragSize = { width: 40, height: 30 }, thick = 36, margin = 3, pad = 10, pillGap = 8, _resolvePending = false, obstacles = {}, splits = {};
+var handles = [], rects = {}, desired = {}, resolved = {}, dragSize = { width: 40, height: 30 }, thick = 36, margin = 3, pad = 10, pillGap = 3, _resolvePending = false, _dragWhole = false, _dragSolo = "", dragActive = false, dragScreen = "", dragImage = "", obstacles = {}, splits = {};
 const root = {};
 eval(src); // carga las funciones del propio servicio (archivo local de este directorio) para probarlas fuera de QML
 const W = 1920, H = 1200;
@@ -78,9 +78,9 @@ a.deepStrictEqual(cfg.rightWidgets, ["bat", "notif"]); a.equal(cfg.floatingPills
 handles = [];
 const lim = { screen: "S", edge: "bottom", lo: 3, hi: 1917 };
 let r = resolve({ a: Object.assign({ start: 900, len: 200 }, lim), b: Object.assign({ start: 1000, len: 80 }, lim) });
-a.equal(r.a, 900); a.equal(r.b, 1108);
+a.equal(r.a, 900); a.equal(r.b, 900 + 200 + pillGap);
 r = resolve({ a: Object.assign({ start: 1700, len: 200 }, lim), b: Object.assign({ start: 1800, len: 100 }, lim) });
-a.equal(r.b, 1817); a.equal(r.a, 1817 - 8 - 200);
+a.equal(r.b, 1817); a.equal(r.a, 1817 - pillGap - 200);
 r = resolve({ a: Object.assign({ start: 100, len: 50 }, lim), b: Object.assign({ start: 400, len: 50 }, lim) });
 a.deepStrictEqual(r, { a: 100, b: 400 }); // separadas: no se tocan
 
@@ -141,4 +141,30 @@ movePill("d", "m", "S", 10, 1190, W, H);
 const mm = cfg.floatingPills[1]; a.equal(mm.edge, "bottom"); a.equal(mm.pos, 3); a.equal(cfg.floatingPills[0].pos, 3);
 movePill("d", "c", "S", 1910, 600, W, H); movePill("d", "c", "S", 20, 10, W, H); // el dueño sí puede volver a su esquina
 a.equal(cfg.floatingPills[0].edge, "top"); a.equal(cfg.floatingPills[0].pos, 3);
+// Píldora soltada en la barra (compartida por todas las pantallas): el widget sale de las píldoras de las otras
+cfg = { leftWidgets: [], centerWidgets: [], rightWidgets: ["cpu"], floatingPills: [{ id: "a", screen: "S", edge: "left", align: "center", pos: 600, widgets: ["clock"] }, { id: "b", screen: "T", edge: "top", align: "center", pos: 960, widgets: ["clock"] }, { id: "c", screen: "T", edge: "left", align: "center", pos: 600, widgets: ["clock", "bat"] }] };
+handles = barRight(); rects = {};
+movePill("d", "a", "S", 1505, 20, W, H);
+a.deepStrictEqual(cfg.rightWidgets, ["clock", "cpu"]);
+a.deepStrictEqual(cfg.floatingPills, [{ id: "c", screen: "T", edge: "left", align: "center", pos: 600, widgets: ["bat"] }]);
+// Píldora entera arrastrada junto a otra: su largo es el real (sin sumar otra vez el relleno), cabe a 9 px (gap 5)
+cfg = { leftWidgets: [], centerWidgets: [], rightWidgets: [], floatingPills: [{ id: "A", screen: "S", edge: "top", align: "start", pos: 3, widgets: ["notif"] }, { id: "B", screen: "S", edge: "left", align: "center", pos: 600, widgets: ["bat"] }] };
+handles = []; rects = { "A@S": { screen: "S", edge: "top", x: 3, y: 4, w: 56, h: 36 } };
+dragSize = { width: 56, height: 36 }; _dragWhole = true;
+movePill("d", "B", "S", 96, 15, W, H);
+a.equal(cfg.floatingPills[1].edge, "top"); a.equal(cfg.floatingPills[1].pos, 68);
+_dragWhole = false;
+// Oculta (setDesired null) deja de apartar a las demás en el reparto
+desired = {}; setDesired("t@S", { screen: "S", edge: "top", start: 1700, len: 60, lo: 3, hi: 1917 }, 1); setDesired("t@S", null, 1);
+a.deepStrictEqual(Object.keys(desired), []);
+// Arrastrar el único widget de una píldora usa el largo real de la píldora
+cfg = { floatingPills: [{ id: "n", screen: "S", edge: "top", align: "end", pos: 1700, widgets: ["notif"] }] };
+rects = { "n@S": { screen: "S", edge: "top", x: 1650, y: 4, w: 50, h: 36 } };
+Qt.size = (w, h) => ({ width: w, height: h });
+beginDrag({ width: 26, height: 30, grabToImage: () => {} }, "S", "d", { kind: "pill", pillId: "n", index: 0 });
+a.equal(_newLen("top"), 50); _dragWhole = false; dragActive = false;
+// Widget angosto sacado de una píldora de varios: la nueva mide lo que el widget más el relleno, no más
+dragSize = { width: 26, height: 30 };
+a.equal(_newLen("top"), Math.max(thick, 26 + pad * 2));
+dragSize = { width: 40, height: 30 };
 console.log("ok");

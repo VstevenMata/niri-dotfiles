@@ -23,7 +23,8 @@ PanelWindow {
     readonly property real pad: FloatingPillService.pad
     readonly property real thick: FloatingPillService.thick
     readonly property real margin: FloatingPillService.margin
-    readonly property real length: Math.max(thick, (vertical ? col.implicitHeight : row.implicitWidth) + pad * 2)
+    // En píxeles enteros: la ventana se dibuja en enteros y con decimales el hueco entre píldoras crecía 1-2 px
+    readonly property real length: Math.ceil(Math.max(thick, (vertical ? col.implicitHeight : row.implicitWidth) + pad * 2))
     // Dónde querría estar (misma cuenta que la vista previa del arrastre). Píldoras antiguas sin align = "start".
     readonly property var geo: FloatingPillService.geometry(edge, pill.align || "start", pill.pos ?? 0, length, screen?.width ?? 0, screen?.height ?? 0)
     // Dónde acaba de verdad: el reparto (FloatingPillService.resolve) la aparta de las demás píldoras
@@ -58,6 +59,11 @@ PanelWindow {
 
     function _publish() {
         const sw = screen?.width ?? 0, sh = screen?.height ?? 0;
+        // Oculta no aparta a las demás: su sitio queda libre
+        if (!visible) {
+            FloatingPillService.setDesired(key, null, win);
+            return;
+        }
         FloatingPillService.setDesired(key, {
             "screen": screen?.name ?? "",
             "edge": edge,
@@ -112,7 +118,10 @@ PanelWindow {
         _publishRect();
     }
     onSxChanged: _publishRect()
-    onVisibleChanged: _publishRect()
+    onVisibleChanged: {
+        _publish();
+        _publishRect();
+    }
     onSyChanged: _publishRect()
     Component.onCompleted: {
         _publish();
