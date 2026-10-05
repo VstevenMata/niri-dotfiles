@@ -308,7 +308,8 @@
           "id": "pmuuft0jkzyxl",
           "screen": "HDMI-A-1",
           "widgets": [
-            "zenTimer"
+            "zenTimer",
+            "themeToggle"
           ],
           "edge": "top",
           "align": "start",
@@ -465,14 +466,114 @@
           "pos": 1738
         },
         {
-          "id": "pmuv3b4uucxls",
-          "screen": "HDMI-A-1",
+          "id": "pmuv629dshfql",
+          "screen": "DP-1",
+          "widgets": [
+            "zenClock"
+          ],
+          "edge": "top",
+          "align": "center",
+          "pos": 960
+        },
+        {
+          "id": "pmuv629dsgr7n",
+          "screen": "DP-1",
+          "widgets": [
+            "zenTimer"
+          ],
+          "edge": "left",
+          "align": "end",
+          "pos": 1197
+        },
+        {
+          "id": "pmuv629dtg1f3",
+          "screen": "DP-1",
+          "widgets": [
+            "idleInhibitor"
+          ],
+          "edge": "top",
+          "align": "start",
+          "pos": 143
+        },
+        {
+          "id": "pmuv629dt2vbh",
+          "screen": "DP-1",
+          "widgets": [
+            "cpuUsage"
+          ],
+          "edge": "right",
+          "align": "end",
+          "pos": 1120
+        },
+        {
+          "id": "pmuv629dtkw4g",
+          "screen": "DP-1",
+          "widgets": [
+            "memUsage"
+          ],
+          "edge": "right",
+          "align": "end",
+          "pos": 1197
+        },
+        {
+          "id": "pmuv629dt5ld6",
+          "screen": "DP-1",
+          "widgets": [
+            "battery"
+          ],
+          "edge": "bottom",
+          "align": "end",
+          "pos": 1869
+        },
+        {
+          "id": "pmuv629dt5utl",
+          "screen": "DP-1",
+          "widgets": [
+            "systemTray"
+          ],
+          "edge": "right",
+          "align": "center",
+          "pos": 686
+        },
+        {
+          "id": "pmuv629dta6mi",
+          "screen": "DP-1",
+          "widgets": [
+            "captureButton"
+          ],
+          "edge": "top",
+          "align": "start",
+          "pos": 76
+        },
+        {
+          "id": "pmuv629dth1p7",
+          "screen": "DP-1",
+          "widgets": [
+            "notificationButton"
+          ],
+          "edge": "top",
+          "align": "end",
+          "pos": 1816
+        },
+        {
+          "id": "pmuv629dtrbhu",
+          "screen": "DP-1",
           "widgets": [
             "themeToggle"
           ],
           "edge": "top",
-          "align": "center",
-          "pos": 837
+          "align": "start",
+          "pos": 3
+        },
+        {
+          "id": "pmuv629dtg8gv",
+          "screen": "DP-1",
+          "widgets": [
+            "controlCenterButton"
+          ],
+          "edge": "top",
+          "align": "end",
+          "pos": 1917
         }
       ]
     }

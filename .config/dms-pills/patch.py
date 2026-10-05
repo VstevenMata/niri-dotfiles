@@ -145,7 +145,10 @@ edit("Modules/DankBar/DankBarWindow.qml", """            height: active ? body.i
         id: pillHoleComp
         Region {}
     }
-    on_TopPillRectsChanged: {
+    // Diferido: al conectar un monitor Quickshell recorre los hijos de esta ventana (reloadRecursive);
+    // crear Regions hijas en ese momento invalida su lista y crashea (SIGSEGV en QMetaObject::cast)
+    on_TopPillRectsChanged: Qt.callLater(_rebuildPillHoles)
+    function _rebuildPillHoles() {
         const old = _pillHoles;
         // Rects en pantalla -> coordenadas de la barra (corrida si hay píldoras a la izquierda)
         const ox = FloatingPillService.barOriginX(modelData?.name ?? "", barWindow.width);

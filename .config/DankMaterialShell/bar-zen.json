@@ -85,7 +85,7 @@
       ],
       "edge": "top",
       "align": "center",
-      "pos": 1018
+      "pos": 960
     },
     {
       "id": "pmut8uoxa6hfa",
@@ -105,7 +105,7 @@
       ],
       "edge": "top",
       "align": "start",
-      "pos": 133
+      "pos": 143
     },
     {
       "id": "pmut8uuqvkxge",
@@ -238,44 +238,15 @@
       "pos": 744
     },
     {
-      "id": "pmuuft0jk2y80",
+      "id": "pmuuft0jkzyxl",
       "screen": "HDMI-A-1",
       "widgets": [
-        "zenClock"
+        "zenTimer",
+        "themeToggle"
       ],
       "edge": "top",
       "align": "start",
       "pos": 3
-    },
-    {
-      "id": "pmuuft0jkd5an",
-      "screen": "HDMI-A-1",
-      "widgets": [
-        "notificationButton"
-      ],
-      "edge": "top",
-      "align": "end",
-      "pos": 1917
-    },
-    {
-      "id": "pmuuft0jkzyxl",
-      "screen": "HDMI-A-1",
-      "widgets": [
-        "zenTimer"
-      ],
-      "edge": "bottom",
-      "align": "start",
-      "pos": 57
-    },
-    {
-      "id": "pmuuft0jktsm4",
-      "screen": "HDMI-A-1",
-      "widgets": [
-        "themeToggle"
-      ],
-      "edge": "left",
-      "align": "end",
-      "pos": 1197
     },
     {
       "id": "pmuuft0jkpiyi",
@@ -284,19 +255,18 @@
         "cpuUsage"
       ],
       "edge": "right",
-      "align": "end",
-      "pos": 1124
+      "align": "start",
+      "pos": 44
     },
     {
       "id": "pmuuft0jkkaie",
       "screen": "HDMI-A-1",
       "widgets": [
-        "idleInhibitor",
         "captureButton"
       ],
       "edge": "left",
       "align": "start",
-      "pos": 44
+      "pos": 51
     },
     {
       "id": "pmuuft0jkqkg5",
@@ -306,7 +276,7 @@
       ],
       "edge": "top",
       "align": "end",
-      "pos": 1857
+      "pos": 1917
     },
     {
       "id": "pmuuft0jkynbq",
@@ -315,8 +285,8 @@
         "memUsage"
       ],
       "edge": "right",
-      "align": "end",
-      "pos": 1197
+      "align": "start",
+      "pos": 112
     },
     {
       "id": "pmuuft0jk3jng",
@@ -334,9 +304,9 @@
       "widgets": [
         "battery"
       ],
-      "edge": "right",
-      "align": "start",
-      "pos": 44
+      "edge": "top",
+      "align": "end",
+      "pos": 1824
     },
     {
       "id": "pmuuh63ovtfxr",
@@ -366,18 +336,17 @@
       ],
       "edge": "top",
       "align": "start",
-      "pos": 65
+      "pos": 76
     },
     {
       "id": "pmuuvjz1ozunq",
       "screen": "eDP-1",
       "widgets": [
-        "controlCenterButton",
         "notificationButton"
       ],
       "edge": "top",
       "align": "end",
-      "pos": 1917
+      "pos": 1816
     },
     {
       "id": "pmuuw95w0uzue",
@@ -388,6 +357,46 @@
       "edge": "top",
       "align": "start",
       "pos": 3
+    },
+    {
+      "id": "pmuuzerz273ow",
+      "screen": "eDP-1",
+      "widgets": [
+        "controlCenterButton"
+      ],
+      "edge": "top",
+      "align": "end",
+      "pos": 1917
+    },
+    {
+      "id": "pmuuft0jk2y80",
+      "screen": "HDMI-A-1",
+      "widgets": [
+        "zenClock"
+      ],
+      "edge": "top",
+      "align": "center",
+      "pos": 960
+    },
+    {
+      "id": "pmuv2ybygdotw",
+      "screen": "HDMI-A-1",
+      "widgets": [
+        "idleInhibitor"
+      ],
+      "edge": "left",
+      "align": "start",
+      "pos": 110
+    },
+    {
+      "id": "pmuv2z5yuqrnp",
+      "screen": "HDMI-A-1",
+      "widgets": [
+        "notificationButton"
+      ],
+      "edge": "top",
+      "align": "end",
+      "pos": 1738
     }
   ]
 }
