@@ -50,6 +50,7 @@ My daily desktop: **Fedora 44** with the **niri** scrolling compositor and **Dan
 | `Super+W` | Tabbed column |
 | `Super+O` / `Super+Tab` | Overview |
 | `Super+S` | Island (dashboard) |
+| `Super+Shift+S` | Zen side panel (calendar, notes) |
 | `Super+Shift+Z` | Zen / normal mode |
 | `Super+Shift+M` | Tiling layouts menu |
 | `Super+Y` | Wallpaper carousel |
@@ -57,6 +58,8 @@ My daily desktop: **Fedora 44** with the **niri** scrolling compositor and **Dan
 | `Super+Shift+A` | Audio output |
 | `Super+B` | System status |
 | `Super+V` · `Super+N` | Clipboard · Notifications |
+
+![Island](.github/screenshots/island.png)
 
 ### How it works
 
@@ -117,9 +120,12 @@ La tabla de atajos de arriba aplica igual. Los más usados:
 | `Super+Enter` | Pantalla completa, oculta píldoras |
 | `Super+R` | Ancho de columna: 1/3, 1/2, 2/3 |
 | `Super+S` | Isla (panel) |
+| `Super+Shift+S` | Panel lateral zen (calendario, notas) |
 | `Super+Shift+Z` | Modo zen / normal |
 | `Super+L` | Ocultar ventanas privadas al compartir |
 | `Super+Y` | Carrusel de fondos |
+
+![Panel lateral zen](.github/screenshots/sidebar.png)
 
 ### Cómo funciona
 
