@@ -241,6 +241,8 @@ binds {
     Mod+Alt+F { maximize-column; }
     // Pantalla completa: la barra y todas las píldoras (capa Top) quedan debajo de la app; otra vez para volver
     Mod+Return hotkey-overlay-title="Pantalla completa (oculta píldoras)" { fullscreen-window; }
+    // Panel lateral zen (también al pasar el mouse por el borde izquierdo; en el HDMI ese borde es la frontera con la laptop)
+    Mod+Shift+S hotkey-overlay-title="Panel lateral zen" { spawn "dms" "ipc" "call" "zensidebar" "toggle"; }
     Mod+Alt+C hotkey-overlay-title="Google Chrome" { spawn "google-chrome"; }
     Mod+B hotkey-overlay-title="Fedora + niri: estado del sistema" { spawn "sh" "-c" "$HOME/.local/bin/fedora-info"; }
     // Ocultar/mostrar ventanas privadas al compartir pantalla (reemplaza focus-column-right de DMS; Super+→ hace lo mismo)

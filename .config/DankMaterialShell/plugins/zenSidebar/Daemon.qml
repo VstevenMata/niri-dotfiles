@@ -160,7 +160,12 @@ Item {
             property bool anyFocus: false   // hay texto escrito sin enviar en un campo
             property bool armed: false      // el mouse ya entró al panel desde que se abrió
             onOpenChanged: { anyFocus = false; armed = false }
-            Connections { target: root; function onToggleRequested() { if (!scr.open) root.refresh(); scr.open = !scr.open } }
+            // El atajo abre solo en el monitor enfocado; cerrar, en cualquiera que lo tenga abierto
+            Connections { target: root; function onToggleRequested() {
+                if (scr.open) { scr.open = false; return }
+                if (scr.modelData.name !== NiriService.currentOutput) return
+                root.refresh(); scr.open = true
+            } }
 
             // Borde sensible
             PanelWindow {
