@@ -1,0 +1,13 @@
+{
+  "lockfileVersion": 1,
+  "plugins": {
+    "dockerManager": {
+      "repo": "https://github.com/LuckShiba/DmsDockerManager",
+      "commit": "9e6a01283e169c46eff7a157202b1b8ab48577b1"
+    },
+    "screenCaptureToolbar": {
+      "repo": "https://github.com/JDKamalakar/DMS-ScreenCapture_Toolbar",
+      "commit": "332ea98c0fb2e2d26d55a0cda14c3c9b3cd28505"
+    }
+  }
+}

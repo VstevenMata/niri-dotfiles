@@ -1,0 +1,80 @@
+// Personalizaciones propias. Se carga al final de config.kdl, después de los archivos de DMS,
+// para que estos valores tengan prioridad.
+
+// 20 px entre ventanas (DMS también lo tiene: niriLayoutGapsOverride en su settings.json)
+// Ventana seleccionada: borde de 3 px con el color del fondo de pantalla (active-color viene de dms/colors.kdl)
+layout {
+    gaps 20
+    focus-ring {
+        width 3
+        inactive-color "#00000000"
+    }
+}
+
+// Ventanas inactivas un poco transparentes, para distinguir cuál está activa
+window-rule {
+    match is-active=false
+    opacity 0.95
+}
+
+// Ventanas emergentes de inicio de sesión / verificación (Google, OAuth): flotantes y centradas.
+// Si el título cambia después de abrir (Chrome abre en about:blank), las atrapa
+// ~/.local/bin/niri-popups-flotantes (lanzado abajo con spawn-at-startup).
+window-rule {
+    match title=r#"(?i)cuentas de google|google accounts|accounts\.google\.com|firebaseapp\.com/__/auth"#
+    // Los popups de window.open() en Chrome nacen con este título (about:blank) y ~0.5 s
+    // después cambian al real; niri solo evalúa open-floating al abrir, así que hay que atraparlos aquí.
+    match app-id=r#"^google-chrome$"# title=r#"^(Sin título|Untitled) - Google Chrome$"#
+    open-floating true
+    default-column-width { fixed 520; }
+    default-window-height { fixed 700; }
+    default-floating-position x=0 y=0 relative-to="top"
+}
+
+spawn-at-startup "sh" "-c" "$HOME/.local/bin/niri-popups-flotantes"
+
+// Zen es el modo principal: al iniciar sesión se entra en zen (espera a que DMS esté listo)
+spawn-at-startup "sh" "-c" "$HOME/.local/bin/theme start"
+
+// Terminal tipo vidrio esmerilado (como iPhone): Ptyxis con opacidad 0.45 y blur fuerte.
+// xray false: difumina lo que realmente hay detrás (otras ventanas), no solo el fondo de pantalla.
+window-rule {
+    match app-id=r#"^org\.gnome\.Ptyxis$"#
+    background-effect {
+        blur true
+        xray false
+    }
+}
+
+blur {
+    passes 3
+    offset 5
+    noise 0.03
+    saturation 1.5
+}
+
+
+// Isla (~/.config/dms-island): el mismo panel del bloqueo, con el sistema desbloqueado.
+// Super+S la abre y la cierra (también Esc o Mod+Q).
+// Es una ventana normal (se mueve entre escritorios): flotante, centrada, esquinas de la isla y vidrio esmerilado
+window-rule {
+    match app-id=r#"^com\.danklinux\.dms$"# title="^Isla$"
+    open-floating true
+    open-focused true
+    geometry-corner-radius 36
+    clip-to-geometry true
+    background-effect {
+        blur true
+        xray false
+    }
+}
+binds {
+    Mod+S hotkey-overlay-title="Isla (abrir/cerrar)" { spawn "dms" "ipc" "call" "isla" "toggle"; }
+    // Cambiar entre modo zen y normal (~/.local/bin/theme)
+    Mod+Shift+Z hotkey-overlay-title="Modo zen / normal" { spawn "sh" "-c" "$HOME/.local/bin/theme toggle"; }
+    // Mosaico del escritorio actual: menú con la forma (~/.local/bin/niri-mosaico)
+    Mod+Shift+M hotkey-overlay-title="Mosaico (elegir forma)" { spawn "sh" "-c" "$HOME/.local/bin/niri-mosaico menu"; }
+}
+
+// Mosaico: el servicio reorganiza los escritorios con mosaico al abrirse/cerrarse ventanas (Super+Shift+M)
+spawn-at-startup "sh" "-c" "$HOME/.local/bin/niri-mosaico daemon"

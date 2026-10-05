@@ -1,0 +1,45 @@
+{
+  "dockerManager": {
+    "enabled": true,
+    "groupByCompose": false
+  },
+  "dndToggle": {
+    "enabled": true
+  },
+  "captureButton": {
+    "enabled": true
+  },
+  "screenCaptureToolbar": {
+    "enabled": true,
+    "captureMode": "interactive",
+    "recordMic": false,
+    "videoMic": "default",
+    "videoFormat": "mp4",
+    "recordAudio": false,
+    "copyVideoFile": false
+  },
+  "whatsappButton": {
+    "enabled": true
+  },
+  "correoUnaButton": {
+    "enabled": true
+  },
+  "themeToggle": {
+    "enabled": true
+  },
+  "zenTimer": {
+    "enabled": true
+  },
+  "zenWaves": {
+    "enabled": true
+  },
+  "zenSidebar": {
+    "enabled": true
+  },
+  "zenVolume": {
+    "enabled": true
+  },
+  "zenClock": {
+    "enabled": true
+  }
+}

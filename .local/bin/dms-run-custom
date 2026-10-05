@@ -1,0 +1,359 @@
+#!/usr/bin/env bash
+# Arranca DMS con una copia de su interfaz que tiene un pequeño parche visual:
+# campo de contraseña de la pantalla de bloqueo transparente, con borde, candado,
+# cursor y puntos en blanco, y "FEDORA LINUX · NIRI" bajo la fecha.
+# La barra puede ir en grupos: una cápsula por sección (opción groupSections, la usa el modo zen).
+# Además, la isla del centro de la barra queda pegada al borde de arriba (esquinas de arriba rectas).
+# La pantalla de bloqueo es la "isla" de ~/.config/dms-island (también como dashboard desbloqueado).
+#
+# En cada arranque se vuelve a copiar la interfaz de la versión instalada de DMS
+# (/usr/share/quickshell/dms), así las actualizaciones siempre se aplican.
+# Si el parche ya no encaja (DMS cambió ese código), arranca DMS normal sin parche.
+# Píldoras sueltas: ~/.config/dms-pills (ver patch_pills).
+#
+# Lo usa el servicio: ~/.config/systemd/user/dms.service.d/custom-ui.conf
+
+SRC=/usr/share/quickshell/dms
+DST="$HOME/.local/share/dms-ui-custom"
+
+patch_ui() {
+    rm -rf "$DST" && cp -a "$SRC" "$DST" || return 1
+    python3 - "$DST/Modules/Lock/LockScreenContent.qml" <<'EOF' || return 1
+import sys
+p = sys.argv[1]
+s = open(p).read()
+
+def sub(old, new, after=None):
+    global s
+    start = s.index(after) if after else 0   # ValueError si no existe -> falla
+    i = s.index(old, start)
+    s = s[:i] + new + s[i + len(old):]
+
+# Caja del campo: fondo transparente y borde blanco
+sub('color: Theme.withAlpha(Theme.surfaceContainer, 0.9)\n'
+    '                    border.color: passwordField.activeFocus ? Theme.primary : Qt.rgba(1, 1, 1, 0.3)',
+    'color: "transparent"\n'
+    '                    border.color: passwordField.activeFocus ? "#ffffff" : Qt.rgba(1, 1, 1, 0.6)',
+    after='id: passwordBox')
+# Candado blanco
+sub('return passwordField.activeFocus ? Theme.primary : Theme.surfaceVariantText;',
+    'return "#ffffff";', after='id: lockIcon')
+# Puntos de la contraseña blancos
+sub('color: Theme.surfaceText', 'color: "#ffffff"', after='id: passwordDisplay')
+# Cursor blanco
+sub('id: passwordCursor\n', 'id: passwordCursor\n                            color: "#ffffff"\n',
+    after='DankTextCursor {')
+# Foto de perfil: se oculta la pequeña junto al campo...
+sub('fallbackIcon: "person"\n                    visible: SettingsData.lockScreenShowProfileImage',
+    'fallbackIcon: "person"\n                    visible: false',
+    after='id: passwordLayout')
+# ...y se pone una más grande (170 px), centrada arriba de todo, encima del reloj
+sub('        Item {\n            id: clockContainer\n',
+    '''        DankCircularImage {
+            id: topProfileImage
+            anchors.horizontalCenter: parent.horizontalCenter
+            anchors.bottom: clockContainer.top
+            anchors.bottomMargin: Theme.spacingXL
+            width: 170
+            height: 170
+            imageSource: {
+                if (PortalService.profileImage === "")
+                    return "";
+                if (PortalService.profileImage.startsWith("/"))
+                    return encodeFileUrl(PortalService.profileImage);
+                return PortalService.profileImage;
+            }
+            fallbackIcon: "person"
+            visible: SettingsData.lockScreenShowProfileImage
+        }
+
+        Item {
+            id: clockContainer
+''')
+
+# "FEDORA LINUX · NIRI" bajo la fecha, en rojo bermellón (el tono de la luna del fondo)
+sub('''        Item {
+            id: lockNotificationPanel
+''', '''        StyledText {
+            id: lemaText
+            anchors.horizontalCenter: parent.horizontalCenter
+            anchors.top: dateText.visible ? dateText.bottom : clockContainer.bottom
+            anchors.topMargin: 6
+            text: "FEDORA LINUX · NIRI"
+            font.pixelSize: Theme.fontSizeMedium
+            font.family: "JetBrainsMono Nerd Font Mono"
+            font.letterSpacing: 4
+            color: "#c8302b"
+            opacity: 0.8
+        }
+
+        Item {
+            id: lockNotificationPanel
+''')
+old_anchor = 'dateText.visible ? dateText.bottom : clockContainer.bottom)'
+assert s.count(old_anchor) == 1, 'anchor passwordLayout'
+s = s.replace(old_anchor, 'lemaText.bottom)')
+sub('anchors.top: dateText.visible ? dateText.bottom : clockContainer.bottom',
+    'anchors.top: lemaText.bottom', after='id: lockNotificationPanel')
+
+open(p, 'w').write(s)
+EOF
+    # Isla del centro pegada arriba: con islandOuterGap 0 sus esquinas de arriba son rectas
+    # (sale del borde como la isla del iPhone); las de abajo siguen redondeadas.
+    python3 - "$DST/Modules/DankIsland/IslandController.qml" <<'EOF' || return 1
+import sys
+p = sys.argv[1]
+s = open(p).read()
+old = '''        const radius = Math.min(crossSize / 2, root.cornerRadius);
+        return {
+            "width": root.isVertical ? crossSize : alongSize,
+            "height": root.isVertical ? alongSize : crossSize,
+            "offsetAlong": root.alongOffset,
+            "offsetCross": root.outerGap,
+            "topLeftRadius": radius,
+            "topRightRadius": radius,'''
+new = '''        const radius = Math.min(crossSize / 2, root.cornerRadius);
+        const pegada = root.outerGap === 0 && root.edge === "top";
+        return {
+            "width": root.isVertical ? crossSize : alongSize,
+            "height": root.isVertical ? alongSize : crossSize,
+            "offsetAlong": root.alongOffset,
+            "offsetCross": root.outerGap,
+            "topLeftRadius": pegada ? 0 : radius,
+            "topRightRadius": pegada ? 0 : radius,'''
+assert s.count(old) == 1, 'isla pillTarget'
+s = s.replace(old, new)
+open(p, 'w').write(s)
+EOF
+    patch_bar_groups || echo "dms-run-custom: el parche de barra en grupos no encaja; sigue sin él" >&2
+    patch_hover_click || echo "dms-run-custom: el parche de hover no encaja; sigue sin él" >&2
+    patch_tabbar || echo "dms-run-custom: el parche de pestañas no encaja; sigue sin él" >&2
+    patch_cc || echo "dms-run-custom: el parche del centro de control no encaja; sigue sin él" >&2
+    patch_notif || echo "dms-run-custom: el parche de notificaciones no encaja; sigue sin él" >&2
+    patch_pills || echo "dms-run-custom: el parche de píldoras sueltas no encaja; sigue sin él" >&2
+    add_island
+    add_dash
+    add_sounds
+}
+
+# Píldoras sueltas (~/.config/dms-pills): arrastrar widgets de la barra a cualquier borde de la pantalla,
+# ordenarlos y moverlos entre píldoras. patch.py es todo o nada: si no encaja, DMS sigue sin píldoras.
+# No editar ~/.local/share/dms-ui-custom a mano: se regenera en cada arranque; los cambios van en ~/.config/dms-pills.
+patch_pills() {
+    local d="$HOME/.config/dms-pills"
+    [ -f "$d/patch.py" ] || return 0
+    python3 "$d/patch.py" "$DST"
+}
+
+# Notificaciones de las apps de Chrome (--app): Chrome siempre manda "Google Chrome" y su ícono.
+# Se renombran a WhatsApp/Gmail (el sitio viene en el body) con el ícono de su botón de la barra.
+patch_notif() {
+    python3 - "$DST/Services/NotificationService.qml" <<'EOF'
+import sys
+p = sys.argv[1]
+s = open(p).read()
+plug = "file://" + __import__("os").path.expanduser("~/.config/DankMaterialShell/plugins/")
+
+def sub(old, new):
+    global s
+    assert s.count(old) == 1, old
+    s = s.replace(old, new)
+
+sub('''        readonly property string appIcon: notification?.appIcon ?? ""
+        readonly property string appName: {
+            if (!notification)
+                return "app";
+''', f'''        readonly property string webApp: body.includes("web.whatsapp.com") ? "WhatsApp" : body.includes("mail.google.com") ? "Gmail" : ""
+        readonly property string appIcon: webApp === "WhatsApp" ? "{plug}whatsappButton/icon.svg"
+            : webApp === "Gmail" ? "{plug}correoUnaButton/icon.png"
+            : notification?.appIcon ?? ""
+        readonly property string appName: {{
+            if (!notification)
+                return "app";
+            if (webApp)
+                return webApp;
+''')
+sub('''    function getGroupKey(wrapper) {
+''', '''    function getGroupKey(wrapper) {
+        if (wrapper.webApp)
+            return wrapper.webApp.toLowerCase();
+''')
+open(p, 'w').write(s)
+EOF
+}
+
+# Isla (lock + dashboard, ver ~/.config/dms-island). Solo se instala si los archivos de DMS
+# de los que depende (Lock, LockSurface, LockScreenDemo, Pam) son los mismos con que se probó;
+# si una actualización los cambió, queda el lock normal de DMS y avisa. Nunca rompe el bloqueo.
+add_island() {
+    local isl="$HOME/.config/dms-island"
+    [ -f "$isl/Island.qml" ] || return 0
+    if (cd "$SRC" && sha256sum --status -c "$isl/upstream.sha256"); then
+        cp "$isl/Island.qml" "$isl/LockSurface.qml" "$isl/LockScreenDemo.qml" "$DST/Modules/Lock/"
+    else
+        notify-send -a DMS "Isla desactivada" \
+            "DMS cambió su pantalla de bloqueo; se usa la normal hasta revisar ~/.config/dms-island" &
+    fi
+    return 0
+}
+
+# Barra en grupos (opción propia "groupSections" en la barra, solo la usa el modo zen):
+# cada sección (izquierda, centro, derecha) se dibuja como una sola cápsula detrás de sus widgets.
+# La del centro desaparece cuando no hay widgets visibles (p. ej. sin música).
+patch_bar_groups() {
+    python3 - "$DST/Modules/DankBar" <<'EOF'
+import sys, os
+d = sys.argv[1]
+def rect(x, w, show):
+    return f"""    Rectangle {{
+        visible: (root.barConfig?.groupSections ?? false) && !root.isVertical && {show}
+        x: {x} - 10
+        width: {w} + 20
+        anchors.verticalCenter: parent.verticalCenter
+        height: root.height
+        radius: height / 2
+        color: Theme.withAlpha(Theme.surfaceContainer, 0.9)
+        border.width: 1
+        border.color: Qt.rgba(1, 1, 1, 0.06)
+    }}
+
+"""
+for f, anchor, x, w, show in [
+    ("LeftSection.qml", "    Loader {\n        id: layoutLoader", "(layoutLoader.item?.x ?? 0)", "(layoutLoader.item?.implicitWidth ?? 0)", "(layoutLoader.item?.implicitWidth ?? 0) > 4"),
+    ("RightSection.qml", "    Loader {\n        id: layoutLoader", "(layoutLoader.item?.x ?? 0)", "(layoutLoader.item?.implicitWidth ?? 0)", "(layoutLoader.item?.implicitWidth ?? 0) > 4"),
+    ("CenterSection.qml", "    Timer {\n        id: layoutTimer", "root.contentStart", "root.contentSize", "root.contentSize > 4 && root.totalWidgets > 0"),
+]:
+    p = os.path.join(d, f)
+    s = open(p).read()
+    assert s.count(anchor) == 1, f
+    s = s.replace(anchor, rect(x, w, show) + anchor)
+    open(p, "w").write(s)
+EOF
+}
+
+# Bug de DMS: con "abrir al pasar el mouse" activado, el hover sobre un plugin con acción de clic
+# (p. ej. el botón 🪷 de modo zen) ejecutaba el clic. El hover solo debe abrir popouts.
+patch_hover_click() {
+    python3 - "$DST/Modules/Plugins/PluginComponent.qml" <<'EOF'
+import sys
+p = sys.argv[1]
+s = open(p).read()
+old = """    function triggerHoverPopout(widgetHostId) {
+        if (pillClickAction) {
+            triggerPopout();
+            return;
+        }"""
+assert s.count(old) == 1
+s = s.replace(old, """    function triggerHoverPopout(widgetHostId) {
+        if (pillClickAction)
+            return;""")
+open(p, "w").write(s)
+EOF
+}
+
+# Resumen de DankDash rediseñado (~/.config/dms-dash). Solo se instala si el OverviewTab de DMS
+# es el mismo con que se probó; si una actualización lo cambió, queda el original y avisa.
+add_dash() {
+    local d="$HOME/.config/dms-dash"
+    [ -f "$d/OverviewTab.qml" ] || return 0
+    if (cd "$SRC" && sha256sum --status -c "$d/upstream.sha256"); then
+        cp "$d/OverviewTab.qml" "$DST/Modules/DankDash/"
+    else
+        notify-send -a DMS "Resumen original" \
+            "DMS cambió su panel Resumen; se usa el original hasta revisar ~/.config/dms-dash" &
+    fi
+    return 0
+}
+
+# Pestañas (DankTabBar, se usa en el panel y en ajustes): la activa se marca con una cápsula
+# suave detrás, en vez de la rayita de color y la línea divisoria; las inactivas quedan tenues.
+patch_tabbar() {
+    python3 - "$DST/DankCommon/Widgets/DankTabBar.qml" <<'EOF'
+import sys
+p = sys.argv[1]
+s = open(p).read()
+def sub(old, new, n=1):
+    global s
+    assert s.count(old) == n, old[:60]
+    s = s.replace(old, new)
+sub("color: tabItem.isActive ? Style.primary : Style.surfaceText\n",
+    "color: Style.surfaceText\n                        opacity: tabItem.isActive ? 1 : 0.5\n", 2)
+sub("""        id: indicator
+        y: parent.height + 7
+        height: 3
+        width: 60
+        topLeftRadius: Style.cornerRadius
+        topRightRadius: Style.cornerRadius
+        bottomLeftRadius: 0
+        bottomRightRadius: 0
+        color: Style.primary""", """        id: indicator
+        z: -1
+        y: 0
+        height: tabBar.tabHeight
+        width: 60
+        radius: 16
+        color: Qt.rgba(Style.surfaceText.r, Style.surfaceText.g, Style.surfaceText.b, 0.08)
+        border.width: 1
+        border.color: Qt.rgba(1, 1, 1, 0.05)""")
+sub("""        y: parent.height + 10
+        color: Style.outlineStrong""", """        y: parent.height + 10
+        color: "transparent\"""")
+sub("        const indicatorWidth = 60;", "        const indicatorWidth = item.width;")
+open(p, "w").write(s)
+EOF
+}
+
+# Sonidos propios y suaves (~/.config/dms-sounds, hechos con ffmpeg) en lugar de los de DMS:
+# cargador conectado/desconectado y notificación. (El de volumen/brillo lo toca el plugin zenVolume.)
+add_sounds() {
+    local d="$HOME/.config/dms-sounds" a="$DST/assets/sounds"
+    [ -d "$d" ] || return 0
+    [ -f "$d/cargador-conectado.wav" ] && cp "$d/cargador-conectado.wav" "$a/plasma/power-plug.wav"
+    [ -f "$d/cargador-desconectado.wav" ] && cp "$d/cargador-desconectado.wav" "$a/plasma/power-unplug.wav"
+    [ -f "$d/notificacion.wav" ] && cp "$d/notificacion.wav" "$a/freedesktop/message.wav"
+    return 0
+}
+
+# Centro de control en modo zen (paleta monocroma): cápsulas y botones redondos, íconos en círculo
+# y lo activo en color hueso suave. En el modo normal no cambia nada.
+patch_cc() {
+    python3 - "$DST/Modules/ControlCenter/Widgets" <<'EOF'
+import sys, os
+d = sys.argv[1]
+ZEN = 'readonly property bool _zen: SettingsData.matugenScheme === "scheme-monochrome"\n'
+SAGE = "Qt.rgba(0.89, 0.855, 0.79, %s)"   # color hueso
+
+def patch(f, subs):
+    p = os.path.join(d, f)
+    s = open(p).read()
+    for old, new in subs:
+        assert s.count(old) == 1, (f, old[:50])
+        s = s.replace(old, new)
+    open(p, "w").write(s)
+
+patch("CompoundPill.qml", [
+    ("    radius: Theme.cornerRadius\n", "    " + ZEN + "    radius: _zen ? height / 2 : Theme.cornerRadius\n"),
+    ("readonly property color _tileBgActive: Theme.ccTileActiveBg", "readonly property color _tileBgActive: _zen ? " + SAGE % "0.2" + " : Theme.ccTileActiveBg"),
+    ("readonly property color _tileRingActive: Theme.ccTileRing", "readonly property color _tileRingActive: _zen ? " + SAGE % "0.55" + " : Theme.ccTileRing"),
+    ("readonly property color _tileIconActive: Theme.ccTileActiveText", 'readonly property color _tileIconActive: _zen ? "#E3DAC9" : Theme.ccTileActiveText'),
+    ("property int _tileSize: 48", "property int _tileSize: _zen ? 42 : 48"),
+    ("property int _tileRadius: Theme.cornerRadius", "property int _tileRadius: _zen ? _tileSize / 2 : Theme.cornerRadius"),
+])
+patch("ToggleButton.qml", [
+    ("""    radius: {
+        if (Theme.cornerRadius === 0)""", """    """ + ZEN + """    radius: {
+        if (_zen)
+            return height / 2;
+        if (Theme.cornerRadius === 0)"""),
+    ("readonly property color _tileBgActive: Theme.ccTileActiveBg", "readonly property color _tileBgActive: _zen ? " + SAGE % "0.16" + " : Theme.ccTileActiveBg"),
+    ("readonly property color _tileRingActive: Theme.ccTileRing", "readonly property color _tileRingActive: _zen ? " + SAGE % "0.5" + " : Theme.ccTileRing"),
+])
+EOF
+}
+
+if patch_ui; then
+    exec /usr/bin/dms run --session -c "$DST"
+else
+    echo "dms-run-custom: el parche no encaja con esta versión de DMS; arrancando sin parche" >&2
+    exec /usr/bin/dms run --session
+fi

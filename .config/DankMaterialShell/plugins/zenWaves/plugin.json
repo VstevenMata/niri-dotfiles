@@ -1,0 +1,13 @@
+{
+    "id": "zenWaves",
+    "name": "Música zen",
+    "description": "Ondas de audio al centro de la barra con controles de música y popout con carátula",
+    "version": "1.0.0",
+    "author": "stevenmq",
+    "type": "widget",
+    "capabilities": ["dankbar-widget"],
+    "component": "./Widget.qml",
+    "icon": "graphic_eq",
+    "requires_dms": ">=1.2.0",
+    "permissions": ["process"]
+}

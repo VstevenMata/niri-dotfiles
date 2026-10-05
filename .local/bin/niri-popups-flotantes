@@ -1,0 +1,40 @@
+#!/usr/bin/env python3
+# Hace flotantes las ventanas emergentes de login/verificación (Google, OAuth) aunque
+# su título cambie después de abrirse. Solo actúa en ventanas recién abiertas (< 15 s),
+# así una pestaña normal que navegue a Google no se vuelve flotante.
+# Agrega patrones en PATRON. Lo lanza spawn-at-startup en ~/.config/niri/custom.kdl.
+import json, re, subprocess, time
+
+PATRON = re.compile(r"cuentas de google|google accounts|accounts\.google\.com|firebaseapp\.com/__/auth", re.I)
+VENTANA_NUEVA_SEG = 15
+ANCHO, ALTO = 520, 700
+
+def accion(*args):
+    subprocess.run(["niri", "msg", "action", *args], check=False)
+
+vistos, hechos = {}, set()
+iniciales = True
+proc = subprocess.Popen(["niri", "msg", "--json", "event-stream"], stdout=subprocess.PIPE, text=True)
+for linea in proc.stdout:
+    ev = json.loads(linea)
+    if "WindowsChanged" in ev and iniciales:
+        # Ventanas que ya existían al arrancar: no tocarlas
+        for w in ev["WindowsChanged"]["windows"]:
+            vistos[w["id"]] = 0
+        iniciales = False
+    elif "WindowClosed" in ev:
+        vistos.pop(ev["WindowClosed"]["id"], None)
+        hechos.discard(ev["WindowClosed"]["id"])
+    elif "WindowOpenedOrChanged" in ev:
+        w = ev["WindowOpenedOrChanged"]["window"]
+        wid = w["id"]
+        abierta = vistos.setdefault(wid, time.monotonic())
+        if wid in hechos or w.get("is_floating") or not PATRON.search(w.get("title") or ""):
+            continue
+        if abierta and time.monotonic() - abierta < VENTANA_NUEVA_SEG:
+            hechos.add(wid)
+            i = str(wid)
+            accion("move-window-to-floating", "--id", i)
+            accion("set-window-width", "--id", i, str(ANCHO))
+            accion("set-window-height", "--id", i, str(ALTO))
+            accion("center-window", "--id", i)

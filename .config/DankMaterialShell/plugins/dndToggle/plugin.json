@@ -1,0 +1,13 @@
+{
+    "id": "dndToggle",
+    "name": "No molestar",
+    "description": "Activa o desactiva No molestar con un clic",
+    "version": "1.0.0",
+    "author": "stevenmq",
+    "type": "widget",
+    "capabilities": ["dankbar-widget"],
+    "component": "./DndToggleWidget.qml",
+    "icon": "do_not_disturb_on",
+    "requires_dms": ">=1.2.0",
+    "permissions": []
+}

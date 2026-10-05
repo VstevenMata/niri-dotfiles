@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+export SAL_USE_VCLPLUGIN=gtk3
+export GTK_THEME=WhiteSur-Dark
+exec /usr/bin/libreoffice "$@"

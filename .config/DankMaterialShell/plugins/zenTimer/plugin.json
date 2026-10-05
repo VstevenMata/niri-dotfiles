@@ -1,0 +1,13 @@
+{
+    "id": "zenTimer",
+    "name": "Tiempo zen",
+    "description": "Reloj de la barra: cuánto llevas en modo zen y ciclo pomodoro (25 min foco / 5 pausa)",
+    "version": "2.0.0",
+    "author": "stevenmq",
+    "type": "widget",
+    "capabilities": ["dankbar-widget"],
+    "component": "./Widget.qml",
+    "icon": "timer",
+    "requires_dms": ">=1.2.0",
+    "permissions": []
+}

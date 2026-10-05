@@ -1,0 +1,25 @@
+#!/bin/sh
+# Wrapper: si el fondo no tiene color, matugen cae al azul por defecto #4285f4.
+# En ese caso usa FALLBACK como color base. DMS no expone esta opción.
+# Borrar este archivo para volver al comportamiento normal.
+FALLBACK='#85bfcd'
+M=/usr/bin/matugen
+
+img=
+prev=
+for a in "$@"; do [ "$prev" = image ] && img=$a; prev=$a; done
+[ -n "$img" ] && [ "$($M image "$img" --show-source-colors 2>/dev/null)" = '#4285f4' ] || exec $M "$@"
+
+# Reescribe "image <ruta>" -> "color hex FALLBACK" y quita opciones que solo aplican a imágenes.
+n=$#; skip=
+while [ $n -gt 0 ]; do
+    a=$1; shift; n=$((n-1))
+    if [ -n "$skip" ]; then skip=; continue; fi
+    case $a in
+        image) set -- "$@" color hex "$FALLBACK"; skip=1 ;;
+        --source-color-index|--prefer|--fallback-color) skip=1 ;;
+        --source-color-index=*|--prefer=*|--fallback-color=*) ;;
+        *) set -- "$@" "$a" ;;
+    esac
+done
+exec $M "$@"

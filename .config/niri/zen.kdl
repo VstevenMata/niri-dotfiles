@@ -1,0 +1,58 @@
+// Modo zen (lo incluye theme.kdl solo en zen). Suave y quieto: nada se mueve, solo se enfoca.
+layout {
+    // 46 px entre apps (niri usa el mismo gap en horizontal y vertical)
+    gaps 46
+    // A los lados -40: sin píldoras las apps quedan a 6 px del borde. Con píldoras en un lado, DMS reserva 40 px
+    // en esa pantalla (~/.config/dms-pills/PillEdgeReserve.qml) y se compensa: a 46 px, 6 después de las píldoras,
+    // y la columna vecina, a 46 px de la visible, cae justo fuera de la pantalla.
+    // Arriba -41: las apps a 6 px de la barra (zona 41). Abajo -42: a 6 px de las píldoras de abajo
+    // (reserva 42); sin píldoras abajo, a 4 px del borde.
+    struts {
+        left -40
+        right -40
+        top -41
+        bottom -42
+    }
+    // 2 columnas a la vista: cada ventana nueva mide media pantalla y la vista se alinea a los bordes
+    // (sin centrar), así las demás quedan fuera de pantalla. Super+R: 1/3, 1/2, 2/3 (config.kdl).
+    default-column-width { proportion 0.5; }
+    center-focused-column "never"
+    // Una sola ventana, al centro
+    always-center-single-column
+    // Sin anillo de color: un borde fino gris casi invisible marca la activa
+    focus-ring { off; }
+    border {
+        on
+        width 1
+        active-color "#ffffff26"
+        inactive-color "#00000000"
+    }
+}
+
+window-rule {
+    geometry-corner-radius 16
+    clip-to-geometry true
+}
+
+// Lo que no estás usando se apaga un poco para no distraer
+window-rule {
+    match is-active=false
+    opacity 0.82
+}
+
+// Abrir y cerrar heredan el efecto de tema.kdl. Cambiar el ancho (Super+R) se anima suave,
+// con resortes sin rebote (damping 1.0). Lo demás queda quieto.
+animations {
+    workspace-switch { off; }
+    horizontal-view-movement { spring damping-ratio=1.0 stiffness=300 epsilon=0.0001; }
+    window-movement { spring damping-ratio=1.0 stiffness=300 epsilon=0.0001; }
+    window-resize { spring damping-ratio=1.0 stiffness=300 epsilon=0.0001; }
+    config-notification-open-close { off; }
+    screenshot-ui-open { off; }
+    overview-open-close { off; }
+}
+
+// En zen, Super+T abre la terminal con paleta "hueso" (~/.local/bin/zen-term)
+binds {
+    Mod+T hotkey-overlay-title="Terminal (zen)" { spawn "sh" "-c" "$HOME/.local/bin/zen-term"; }
+}

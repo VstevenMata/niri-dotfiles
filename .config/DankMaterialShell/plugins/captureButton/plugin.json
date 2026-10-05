@@ -1,0 +1,13 @@
+{
+    "id": "captureButton",
+    "name": "Captura",
+    "description": "Abre la Screen Capture Toolbar con un clic",
+    "version": "1.0.0",
+    "author": "stevenmq",
+    "type": "widget",
+    "capabilities": ["dankbar-widget"],
+    "component": "./CaptureButtonWidget.qml",
+    "icon": "screenshot_region",
+    "requires_dms": ">=1.2.0",
+    "permissions": ["process"]
+}

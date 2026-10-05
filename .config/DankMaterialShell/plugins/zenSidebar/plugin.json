@@ -1,0 +1,13 @@
+{
+    "id": "zenSidebar",
+    "name": "Panel lateral zen",
+    "description": "En modo zen, al pasar el mouse por el borde izquierdo se abre un panel con calendario, próximos y árbol de notas (~/Notas)",
+    "version": "1.0.0",
+    "author": "stevenmq",
+    "type": "daemon",
+    "capabilities": ["daemon"],
+    "component": "./Daemon.qml",
+    "icon": "view_sidebar",
+    "requires_dms": ">=1.2.0",
+    "permissions": ["process"]
+}

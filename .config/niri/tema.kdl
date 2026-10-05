@@ -1,0 +1,112 @@
+// Tema Azul macOS (el de siempre). ~/.local/bin/temas-aplicar lo copia a ~/.config/niri/tema.kdl
+// Animaciones: efecto genio al abrir/cerrar y resortes con un poco de rebote.
+animations {
+    // < 1 = más rápido. 0.7 = 30% más rápidas que antes
+    slowdown 0.7
+    workspace-switch {
+        spring damping-ratio=0.80 stiffness=523 epsilon=0.0001
+    }
+    // Apertura estilo macOS: efecto genio saliendo desde el dock
+    window-open {
+        duration-ms 450
+        curve "linear"
+        custom-shader r"
+            // Efecto genio: la ventana se absorbe hacia el dock.
+            // q = 0 ventana normal, q = 1 ventana dentro del dock.
+            vec4 genie(vec3 coords_geo, vec3 size_geo, float q) {
+                // Punto destino: centro del borde inferior, ~40 px por debajo (el dock)
+                float tx = 0.5;
+                float ty = 1.0 + 40.0 / size_geo.y;
+                float tw = 48.0 / size_geo.x;
+
+                float narrow = smoothstep(0.0, 0.5, q);  // fase 1: se forma el embudo
+                float slide  = smoothstep(0.25, 1.0, q); // fase 2: el contenido baja
+
+                float x = coords_geo.x;
+                float y = coords_geo.y;
+                if (y > ty) return vec4(0.0);
+
+                // Fila de origen: el contenido se desliza hacia abajo
+                float v = y - slide * ty;
+                if (v < 0.0 || v > 1.0) return vec4(0.0);
+
+                // Ancho del embudo en esta fila (curva en S hacia el destino)
+                float k = smoothstep(0.0, 1.0, clamp(y / ty, 0.0, 1.0)) * narrow;
+                float l = mix(0.0, tx - tw * 0.5, k);
+                float r = mix(1.0, tx + tw * 0.5, k);
+                float u = (x - l) / max(r - l, 0.0001);
+                if (u < 0.0 || u > 1.0) return vec4(0.0);
+
+                vec3 coords_tex = niri_geo_to_tex * vec3(u, v, 1.0);
+                vec4 color = texture2D(niri_tex, coords_tex.st);
+                return color * (1.0 - smoothstep(0.85, 1.0, q));
+            }
+
+            vec4 open_color(vec3 coords_geo, vec3 size_geo) {
+                return genie(coords_geo, size_geo, 1.0 - niri_clamped_progress);
+            }
+        "
+    }
+    // Cierre estilo macOS: efecto genio hacia el dock
+    window-close {
+        duration-ms 450
+        curve "linear"
+        custom-shader r"
+            // Efecto genio: la ventana se absorbe hacia el dock.
+            // q = 0 ventana normal, q = 1 ventana dentro del dock.
+            vec4 genie(vec3 coords_geo, vec3 size_geo, float q) {
+                // Punto destino: centro del borde inferior, ~40 px por debajo (el dock)
+                float tx = 0.5;
+                float ty = 1.0 + 40.0 / size_geo.y;
+                float tw = 48.0 / size_geo.x;
+
+                float narrow = smoothstep(0.0, 0.5, q);  // fase 1: se forma el embudo
+                float slide  = smoothstep(0.25, 1.0, q); // fase 2: el contenido baja
+
+                float x = coords_geo.x;
+                float y = coords_geo.y;
+                if (y > ty) return vec4(0.0);
+
+                // Fila de origen: el contenido se desliza hacia abajo
+                float v = y - slide * ty;
+                if (v < 0.0 || v > 1.0) return vec4(0.0);
+
+                // Ancho del embudo en esta fila (curva en S hacia el destino)
+                float k = smoothstep(0.0, 1.0, clamp(y / ty, 0.0, 1.0)) * narrow;
+                float l = mix(0.0, tx - tw * 0.5, k);
+                float r = mix(1.0, tx + tw * 0.5, k);
+                float u = (x - l) / max(r - l, 0.0001);
+                if (u < 0.0 || u > 1.0) return vec4(0.0);
+
+                vec3 coords_tex = niri_geo_to_tex * vec3(u, v, 1.0);
+                vec4 color = texture2D(niri_tex, coords_tex.st);
+                return color * (1.0 - smoothstep(0.85, 1.0, q));
+            }
+
+            vec4 close_color(vec3 coords_geo, vec3 size_geo) {
+                return genie(coords_geo, size_geo, niri_clamped_progress);
+            }
+        "
+    }
+    horizontal-view-movement {
+        spring damping-ratio=0.85 stiffness=423 epsilon=0.0001
+    }
+    window-movement {
+        spring damping-ratio=0.75 stiffness=323 epsilon=0.0001
+    }
+    window-resize {
+        spring damping-ratio=0.85 stiffness=423 epsilon=0.0001
+    }
+    config-notification-open-close {
+        spring damping-ratio=0.65 stiffness=923 epsilon=0.001
+    }
+    screenshot-ui-open {
+        duration-ms 200
+        curve "ease-out-quad"
+    }
+    overview-open-close {
+        spring damping-ratio=0.85 stiffness=800 epsilon=0.0001
+    }
+}
+
+// Escritorios con nombre (generado por temas-aplicar desde tema.json)

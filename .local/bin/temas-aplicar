@@ -1,0 +1,125 @@
+#!/usr/bin/env python3
+# Aplica el tema de ~/.local/share/temas/actual/ (Azul macOS): temas-aplicar actual. Sirve para restaurarlo si algo se desconfigura.
+# Cada tema tiene tema.json (fondo, colores, barra de DMS, terminal, fuzzel) y niri.kdl
+# (ventanas y animaciones, se copia a ~/.config/niri/tema.kdl). Los atajos nunca cambian.
+import json, os, random, subprocess, sys
+
+HOME = os.path.expanduser("~")
+BASE = f"{HOME}/.local/share/temas"
+DMS = f"{HOME}/.config/DankMaterialShell/settings.json"
+FUZZEL = f"{HOME}/.config/fuzzel/audio-salida.ini"
+ESTADO = f"{HOME}/.local/state/temas/actual"
+
+
+def run(*cmd):
+    return subprocess.run(cmd, capture_output=True, text=True)
+
+
+def aviso(texto):
+    if run("dms", "ipc", "call", "toast", "info", texto).returncode != 0:
+        run("notify-send", "Temas", texto)
+
+
+def escribir(ruta, texto):
+    # Escritura atómica: quien vigila el archivo nunca lo ve a medias
+    tmp = ruta + ".tmp"
+    with open(tmp, "w") as f:
+        f.write(texto)
+    os.replace(tmp, ruta)
+
+
+def escritorios_kdl(escritorios):
+    # Escritorios con nombre y la regla que manda cada app al suyo (sale de "escritorios" en tema.json)
+    kdl = "\n// Escritorios con nombre (generado por temas-aplicar desde tema.json)\n"
+    for e in escritorios:
+        kdl += f'workspace "{e["nombre"]}"\n'
+    for e in escritorios:
+        coincide = [f'    match app-id=r#"{a}"#' for a in e.get("apps", [])]
+        coincide += [f'    match title=r#"{t}"#' for t in e.get("titulos", [])]
+        if coincide:
+            kdl += "window-rule {\n" + "\n".join(coincide) + f'\n    open-on-workspace "{e["nombre"]}"\n}}\n'
+    return kdl
+
+
+def niri(carpeta, t):
+    texto = open(f"{carpeta}/niri.kdl").read() + escritorios_kdl(t.get("escritorios", []))
+    prueba = f"{HOME}/.config/niri/.tema-prueba.kdl"
+    escribir(prueba, texto)
+    ok = run("niri", "validate", "-c", prueba).returncode == 0
+    os.remove(prueba)
+    if not ok:
+        raise RuntimeError("niri.kdl no es válido")
+    escribir(f"{HOME}/.config/niri/tema.kdl", texto)   # niri recarga solo
+
+
+def dms(t):
+    s = json.load(open(DMS))
+    for k, v in t.get("dms", {}).items():
+        s[k] = os.path.expanduser(v) if isinstance(v, str) and v.startswith("~") else v
+    s["barConfigs"][0].update(t.get("dms_barra", {}))
+    # Widgets de escritorio: se cambian solo los del tema (id "tema-..."); los tuyos se quedan
+    propios = [w for w in s.get("desktopWidgetInstances", []) if not w["id"].startswith("tema-")]
+    s["desktopWidgetInstances"] = propios + t.get("dms_widgets", [])
+    escribir(DMS, json.dumps(s, indent=2, ensure_ascii=False) + "\n")   # DMS recarga solo
+
+
+def fondo(ruta):
+    ruta = os.path.expanduser(ruta)
+    if os.path.isdir(ruta):
+        actual = run("dms", "ipc", "call", "wallpaper", "get").stdout.strip()
+        fondos = [f"{ruta}/{f}" for f in sorted(os.listdir(ruta)) if f.endswith((".png", ".jpg", ".jxl", ".webp"))]
+        ruta = random.choice([f for f in fondos if f != actual] or fondos)   # aleatorio, distinto al actual
+    run("dms", "ipc", "call", "wallpaper", "set", ruta)
+
+
+def terminal(cfg):
+    uuid = run("gsettings", "get", "org.gnome.Ptyxis", "default-profile-uuid").stdout.strip().strip("'")
+    perfil = f"org.gnome.Ptyxis.Profile:/org/gnome/Ptyxis/Profiles/{uuid}/"
+    run("gsettings", "set", perfil, "palette", cfg["paleta"])
+    run("gsettings", "set", perfil, "opacity", str(cfg["opacidad"]))
+
+
+def fuzzel(colores):
+    lineas, seccion = [], None
+    for l in open(FUZZEL).read().splitlines():
+        if l.startswith("["):
+            seccion = l.strip()
+        elif seccion == "[colors]" and "=" in l and l.split("=")[0] in colores:
+            l = f"{l.split('=')[0]}={colores[l.split('=')[0]]}"
+        lineas.append(l)
+    escribir(FUZZEL, "\n".join(lineas) + "\n")
+
+
+def main():
+    tema = sys.argv[1] if len(sys.argv) > 1 else ""
+    carpeta = f"{BASE}/{tema}"
+    if not os.path.isfile(f"{carpeta}/tema.json"):
+        aviso(f"El tema «{tema}» todavía no está listo")
+        return
+    t = json.load(open(f"{carpeta}/tema.json"))
+    # Lo que el tema anterior necesita apagar al salir ("al_salir" en su tema.json)
+    anterior = open(ESTADO).read().strip() if os.path.exists(ESTADO) else ""
+    if anterior and anterior != tema and os.path.isfile(f"{BASE}/{anterior}/tema.json"):
+        for cmd in json.load(open(f"{BASE}/{anterior}/tema.json")).get("al_salir", []):
+            run("sh", "-c", cmd)
+    try:
+        niri(carpeta, t)
+    except RuntimeError as e:
+        aviso(f"Tema «{t['nombre']}» no aplicado: {e}")
+        return
+    dms(t)
+    fondo(t["fondo"])
+    run("gsettings", "set", "org.gnome.desktop.interface", "accent-color", t["acento_gtk"])
+    run("dms", "ipc", "call", "notifications",
+        "enableDoNotDisturbIndefinitely" if t.get("no_molestar") else "disableDoNotDisturb")
+    terminal(t["terminal"])
+    fuzzel(t["fuzzel"])
+    os.makedirs(os.path.dirname(ESTADO), exist_ok=True)
+    escribir(ESTADO, tema + "\n")
+    for cmd in t.get("al_entrar", []):
+        run("sh", "-c", cmd)
+    if not t.get("no_molestar"):
+        aviso(f"Tema {t['nombre']}")
+
+
+main()

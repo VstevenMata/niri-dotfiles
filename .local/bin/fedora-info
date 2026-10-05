@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+# Super+B: notificación con el estado del sistema (Fedora + niri) y un consejo al azar.
+ICON=/usr/share/pixmaps/fedora-logo-sprite.png
+
+version=$(. /etc/os-release && echo "$VERSION_ID")
+niri=$(niri --version | awk '{print $2}')
+kernel=$(uname -r); kernel=${kernel%%.fc*}
+up=$(uptime -p | sed 's/^up //; s/ days\?/d/; s/ hours\?/h/; s/ minutes\?/m/g; s/,//g')
+mem=$(free -h --si | awk '/^Mem/ {print $3 " de " $2}')
+ventanas=$(niri msg windows | grep -c '^Window')
+
+consejos=(
+    "<b>Super + rueda</b> cambia de escritorio; con <b>Ctrl</b> se lleva la columna actual."
+    "<b>Super + O</b> abre la vista general de niri: todas las ventanas y escritorios de un vistazo."
+    "<b>niri msg windows</b> lista las ventanas abiertas desde la terminal."
+    "<b>niri validate</b> revisa ~/.config/niri/config.kdl antes de que niri lo recargue."
+    "<b>sudo dnf upgrade --refresh</b> actualiza Fedora; <b>dnf history undo last</b> deshace el último cambio."
+    "<b>dnf provides */comando</b> dice qué paquete trae un comando que falta."
+    "<b>rpm -q --last | head</b> muestra los últimos paquetes instalados."
+    "<b>journalctl --user -u niri -b</b> muestra los mensajes de niri de esta sesión."
+)
+
+notify-send -a "Fedora Linux" -i "$ICON" "Fedora Linux $version · niri $niri" \
+    "Kernel $kernel · encendida $up
+Memoria: $mem · $ventanas ventanas abiertas
+
+${consejos[RANDOM % ${#consejos[@]}]}"

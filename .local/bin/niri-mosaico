@@ -1,0 +1,234 @@
+#!/usr/bin/env python3
+"""Mosaico por escritorio para niri: la pantalla en N partes (columnas) con M ventanas apiladas en cada una.
+
+  niri-mosaico daemon    escucha a niri y reorganiza los escritorios con mosaico (spawn-at-startup)
+  niri-mosaico menu      elegir la forma del escritorio actual con fuzzel (Super+Shift+M)
+  niri-mosaico set N M   N partes x M por parte en el escritorio actual (0 0 = sin mosaico)
+  niri-mosaico arrange   reorganizar ya el escritorio actual
+
+Ejemplo: 4 partes x 2 = cuadrícula de 4 columnas con 2 ventanas cada una. Si hay más ventanas de las que
+caben, siguen en más columnas iguales a la derecha (se llega con scroll). niri no puede partir una columna
+en horizontal: cada parte es una columna y sus ventanas se apilan de arriba abajo.
+El reacomodo va dentro de una transición de pantalla de niri (congela la imagen y funde al resultado),
+así no se ve cada ventana moverse. Se puede arrastrar una ventana con Super+clic izquierdo (o desde su barra de título) a otro sitio:
+al soltarla el mosaico se recompone en el nuevo orden.
+Estado: ~/.local/state/niri-mosaico.json  {id de escritorio: [partes, por_parte]}
+"""
+import json
+import os
+import subprocess
+import queue
+import sys
+import threading
+
+STATE = os.path.expanduser("~/.local/state/niri-mosaico.json")
+
+
+def niri(*args):
+    return subprocess.run(["niri", "msg", *args], capture_output=True, text=True).stdout
+
+
+def action(*args):
+    subprocess.run(["niri", "msg", "action", *args], capture_output=True)
+
+
+def load():
+    try:
+        return {int(k): v for k, v in json.load(open(STATE)).items()}
+    except (OSError, ValueError):
+        return {}
+
+
+def save(st):
+    os.makedirs(os.path.dirname(STATE), exist_ok=True)
+    json.dump({str(k): v for k, v in st.items()}, open(STATE, "w"))
+
+
+def stacks(n, per):
+    """Cuántas ventanas en cada columna, de izquierda a derecha."""
+    return [min(per, n - i) for i in range(0, n, per)]
+
+
+def tiled(ws_id):
+    wins = [w for w in json.loads(niri("-j", "windows"))
+            if w["workspace_id"] == ws_id and not w["is_floating"] and w["layout"]["pos_in_scrolling_layout"]]
+    return sorted(wins, key=lambda w: tuple(w["layout"]["pos_in_scrolling_layout"]))
+
+
+def broken(ws_id, per):
+    """¿Se rompió la forma (p. ej. al soltar una ventana arrastrada dentro de otra columna)?"""
+    allw = json.loads(niri("-j", "windows"))
+    if any(not w["is_floating"] and (w["workspace_id"] is None or not w["layout"]["pos_in_scrolling_layout"])
+           for w in allw):
+        return False  # hay una ventana a medio arrastrar: esperar a que se suelte
+    wins = [w for w in allw if w["workspace_id"] == ws_id and not w["is_floating"]]
+    cols = {}
+    for w in wins:
+        c = w["layout"]["pos_in_scrolling_layout"][0]
+        cols[c] = cols.get(c, 0) + 1
+    return [cols[c] for c in sorted(cols)] != stacks(len(wins), per)
+
+
+def arrange(ws_id, parts, per, focus_id=None):
+    wins = tiled(ws_id)
+    if not wins:
+        return
+    if focus_id is None:
+        focus_id = next((w["id"] for w in wins if w["is_focused"]), wins[0]["id"])
+    order = [w["id"] for w in wins]
+    width = f"{100 / parts:.3f}%"
+    # Congela la imagen mientras se recoloca; luego niri funde al resultado.
+    # ponytail: el retardo se estima por número de acciones (~6 ms cada una); si se ve a medias, subir MS_POR_ACCION
+    n_actions = 4 * len(order) + 3 * len(stacks(len(order), per))
+    action("do-screen-transition", "--delay-ms", str(min(900, 120 + 6 * n_actions)))
+    # 1. Cada ventana en su propia columna, en el orden actual. Se relee el estado tras cada expulsión:
+    # expel-window-from-column no siempre saca la enfocada si está en medio de la columna.
+    for _ in range(2 * len(order)):
+        extra = [w for w in tiled(ws_id) if w["layout"]["pos_in_scrolling_layout"][1] > 1]
+        if not extra:
+            break
+        action("focus-window", "--id", str(extra[-1]["id"]))  # la de más abajo de la última columna
+        action("expel-window-from-column")
+    for i, wid in enumerate(order):
+        action("focus-window", "--id", str(wid))
+        action("move-column-to-index", str(i + 1))
+    # 2. Apilar: consume-window-into-column mete la columna de la derecha en la enfocada
+    i = 0
+    for size in stacks(len(order), per):
+        action("focus-window", "--id", str(order[i]))
+        for _ in range(size - 1):
+            action("consume-window-into-column")
+        action("set-column-width", width)
+        for wid in order[i:i + size]:
+            action("focus-window", "--id", str(wid))
+            action("reset-window-height")
+        i += size
+    # La vista empieza en la primera columna (si no, queda desplazada de antes y sobra hueco a un lado)
+    action("focus-column-first")
+    action("focus-window", "--id", str(focus_id))
+
+
+def current_ws():
+    return next(w["id"] for w in json.loads(niri("-j", "workspaces")) if w["is_focused"])
+
+
+def set_layout(parts, per):
+    ws, st = current_ws(), load()
+    if parts <= 0:
+        st.pop(ws, None)
+        msg = "Sin mosaico en este escritorio"
+    else:
+        st[ws] = [parts, per]
+        arrange(ws, parts, per)
+        msg = f"Mosaico: {parts} {'parte' if parts == 1 else 'partes'} × {per} por parte"
+    save(st)
+    subprocess.run(["notify-send", "-a", "niri", "-t", "1500", msg])
+
+
+PREVIEWS = os.path.expanduser("~/.cache/niri-mosaico")
+
+
+def preview(parts, per):
+    """SVG en miniatura: la pantalla partida en `parts` columnas con `per` ventanas apiladas en cada una."""
+    path = f"{PREVIEWS}/{parts}x{per}.svg"
+    if not os.path.exists(path):
+        os.makedirs(PREVIEWS, exist_ok=True)
+        x0, y0, W, H, gap = 2, 2, 92, 52, 3  # pantalla 16:9
+        shapes = [f'<rect x="{x0 - 1}" y="{y0 - 1}" width="{W + 2}" height="{H + 2}" rx="4" fill="none" '
+                  f'stroke="#888" stroke-width="1.5"/>']
+        if parts:
+            cw, rh = (W - gap * (parts + 1)) / parts, (H - gap * (per + 1)) / per
+            for c in range(parts):
+                for r in range(per):
+                    shapes.append(f'<rect x="{x0 + gap + c * (cw + gap):.1f}" y="{y0 + gap + r * (rh + gap):.1f}" '
+                                  f'width="{cw:.1f}" height="{rh:.1f}" rx="2" fill="#8ab4f8"/>')
+        else:  # sin mosaico: ventanas sueltas de niri, la última cortada a la derecha (scroll)
+            shapes += [f'<rect x="{x0 + gap}" y="{y0 + gap}" width="52" height="{H - 2 * gap}" rx="2" fill="#666"/>',
+                       f'<rect x="{x0 + gap + 55}" y="{y0 + gap}" width="{W - gap - 55}" height="{H - 2 * gap}" rx="2" fill="#555"/>']
+        open(path, "w").write(f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 56">{"".join(shapes)}</svg>')
+    return path
+
+
+def menu():
+    cur = load().get(current_ws())
+    opts = [(0, 0, "Sin mosaico  ·  niri normal (scroll)")]
+    for parts in (1, 2, 3, 4):
+        for per in (1, 2, 3):
+            cols = "1 columna" if parts == 1 else f"{parts} columnas"
+            wins = "1 ventana" if per == 1 else f"{per} ventanas apiladas"
+            opts.append((parts, per, f"{cols}  ·  {wins}"))
+    lines = [f"{t}{'   ● actual' if cur == [p, n] or (not cur and not p) else ''}\0icon\x1f{preview(p, n)}"
+             for p, n, t in opts]
+    r = subprocess.run(["fuzzel", "--dmenu", "--index", "--prompt", "Mosaico de este escritorio  ",
+                        "--lines", str(len(opts)), "--width", "46", "--font", "sans:size=15",
+                        "--background", "161616f2", "--text-color", "ccccccff", "--prompt-color", "888888ff",
+                        "--selection-color", "2a2a2aff", "--selection-text-color", "ffffffff", "--input-color", "ffffffff", "--border-color", "333333ff"],
+                       input="\n".join(lines), capture_output=True, text=True)
+    if r.stdout.strip().isdigit():
+        set_layout(*opts[int(r.stdout)][:2])
+
+
+def daemon():
+    # Los eventos se leen en otro hilo y se agrupan: varias ventanas abiertas seguidas (o durante un
+    # reacomodo) dan un solo reacomodo, no uno encolado por ventana.
+    where = {w["id"]: w["workspace_id"] for w in json.loads(niri("-j", "windows"))}
+    proc = subprocess.Popen(["niri", "msg", "-j", "event-stream"], stdout=subprocess.PIPE, text=True)
+    events = queue.Queue()
+    threading.Thread(target=lambda: [events.put(line) for line in proc.stdout], daemon=True).start()
+    while True:
+        batch = [events.get()]
+        try:
+            while True:
+                batch.append(events.get(timeout=0.15))
+        except queue.Empty:
+            pass
+        touched, moved, focus = set(), set(), {}
+        for line in batch:
+            try:
+                ev = json.loads(line)
+            except ValueError:
+                continue
+            if "WindowOpenedOrChanged" in ev:
+                w = ev["WindowOpenedOrChanged"]["window"]
+                before = where.get(w["id"])
+                where[w["id"]] = w["workspace_id"]
+                if before != w["workspace_id"] and not w["is_floating"]:  # nueva o llegó de otro escritorio
+                    touched.add(w["workspace_id"])
+                    focus[w["workspace_id"]] = w["id"]
+            elif "WindowClosed" in ev:
+                ws = where.pop(ev["WindowClosed"]["id"], None)
+                if ws is not None:
+                    touched.add(ws)
+            elif "WindowLayoutsChanged" in ev:  # arrastre o movimiento a mano dentro del escritorio
+                moved.update(where[wid] for wid, _ in ev["WindowLayoutsChanged"]["changes"] if wid in where)
+        st = load()
+        for ws in touched:
+            if ws in st:
+                arrange(ws, *st[ws], focus.get(ws))
+        for ws in moved - touched:
+            if ws in st and broken(ws, st[ws][1]):
+                arrange(ws, *st[ws])
+
+
+def main():
+    a = sys.argv[1:]
+    cmd = a[0] if a else ""
+    if cmd == "daemon":
+        daemon()
+    elif cmd == "menu":
+        menu()
+    elif cmd == "set" and len(a) == 3:
+        set_layout(int(a[1]), int(a[2]))
+    elif cmd == "arrange":
+        ws = current_ws()
+        if ws in load():
+            arrange(ws, *load()[ws])
+    elif cmd == "test":
+        assert stacks(8, 2) == [2, 2, 2, 2] and stacks(5, 2) == [2, 2, 1] and stacks(3, 3) == [3] and stacks(1, 2) == [1]
+        print("ok")
+    else:
+        print(__doc__)
+
+
+if __name__ == "__main__":
+    main()

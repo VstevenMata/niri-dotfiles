@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+# Revisa si hay actualizaciones de Fedora (dnf) y Flatpak y avisa con una notificación. No instala nada.
+# Lo corre el temporizador ~/.config/systemd/user/avisar-actualizaciones.timer (10 min después de
+# encender y luego cada 6 h). Para no repetir: solo avisa si el número cambió o pasó un día.
+ESTADO="$HOME/.local/state/avisar-actualizaciones"
+mkdir -p "$(dirname "$ESTADO")"
+
+dnf_n=$(dnf check-update -q 2>/dev/null | grep -cE '^[^ ]+\.(x86_64|noarch|i686|aarch64) ')
+flat_n=$(flatpak remote-ls --updates 2>/dev/null | grep -c .)
+total=$((dnf_n + flat_n))
+(( total > 0 )) || { rm -f "$ESTADO"; exit 0; }
+
+read -r antes cuando < "$ESTADO" 2>/dev/null
+ahora=$(date +%s)
+if [[ $antes == "$total" ]] && (( ahora - ${cuando:-0} < 86400 )); then
+    exit 0
+fi
+echo "$total $ahora" > "$ESTADO"
+
+partes=()
+(( dnf_n > 0 )) && partes+=("$dnf_n de Fedora")
+(( flat_n > 0 )) && partes+=("$flat_n de Flatpak")
+detalle=$(IFS=,; echo "${partes[*]}" | sed 's/,/ y /')
+
+notify-send -a "Actualizaciones" -i system-software-update "Hay $total actualizaciones" \
+    "$detalle.
+Para instalarlas: <b>sudo dnf upgrade --refresh</b> y <b>flatpak update</b>"

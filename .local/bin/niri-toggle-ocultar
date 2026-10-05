@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+# Super+L: alterna ocultar ventanas con datos privados (.env, terminales) al compartir
+# pantalla en Discord, Meet, Zoom, OBS... Tú las sigues viendo normal.
+# niri recarga blockout.kdl automáticamente al cambiar.
+F="$HOME/.config/niri/blockout.kdl"
+
+# Apps a ocultar (expresiones regulares de app-id). Agrega o quita líneas aquí.
+APPS=(
+    '^code$'              # VS Code (.env, credenciales)
+    '^org\.gnome\.Ptyxis$' # Terminal
+)
+
+if grep -q 'block-out-from' "$F" 2>/dev/null; then
+    echo '// Ocultar al compartir pantalla: DESACTIVADO. Super+L para activar.' > "$F"
+    notify-send -a niri -i view-reveal-symbolic "Compartir pantalla" "Ventanas privadas VISIBLES"
+else
+    {
+        echo '// Ocultar al compartir pantalla: ACTIVADO. Super+L para desactivar.'
+        echo '// Generado por ~/.local/bin/niri-toggle-ocultar: edita la lista APPS allí.'
+        echo 'window-rule {'
+        for a in "${APPS[@]}"; do echo "    match app-id=r#\"$a\"#"; done
+        echo '    block-out-from "screencast"'
+        echo '}'
+    } > "$F"
+    notify-send -a niri -i view-conceal-symbolic "Compartir pantalla" "Ventanas privadas OCULTAS"
+fi

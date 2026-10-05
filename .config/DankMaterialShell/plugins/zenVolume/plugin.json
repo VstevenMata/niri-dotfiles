@@ -1,0 +1,13 @@
+{
+    "id": "zenVolume",
+    "name": "Indicadores zen",
+    "description": "Volumen, silencio, micrófono y brillo: aparecen un momento en el centro de la barra con un ensō que marca el nivel",
+    "version": "1.0.0",
+    "author": "stevenmq",
+    "type": "widget",
+    "capabilities": ["dankbar-widget"],
+    "component": "./Widget.qml",
+    "icon": "volume_up",
+    "requires_dms": ">=1.2.0",
+    "permissions": []
+}

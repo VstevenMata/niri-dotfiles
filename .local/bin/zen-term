@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+# Terminal del modo zen: footclient con paleta "hueso" (carbón cálido, texto hueso, salvia, arena, niebla,
+# arcilla, lavanda) y sin transparencia. Las terminales del modo normal no cambian.
+exec footclient \
+  -o colors-dark.alpha=0.97 \
+  -o colors-dark.background=171615 \
+  -o colors-dark.foreground=e3dac9 \
+  -o colors-dark.selection-background=3a3631 \
+  -o colors-dark.selection-foreground=e8ece4 \
+  -o colors-dark.cursor="171615 e3dac9" \
+  -o colors-dark.regular0=262422 -o colors-dark.bright0=55504a \
+  -o colors-dark.regular1=c48a8a -o colors-dark.bright1=d6a3a1 \
+  -o colors-dark.regular2=9db8a0 -o colors-dark.bright2=b6ccb7 \
+  -o colors-dark.regular3=cdb892 -o colors-dark.bright3=dfcfaa \
+  -o colors-dark.regular4=8fa9be -o colors-dark.bright4=a9c0d2 \
+  -o colors-dark.regular5=ada3c4 -o colors-dark.bright5=c4bbd6 \
+  -o colors-dark.regular6=93b8b0 -o colors-dark.bright6=add0c7 \
+  -o colors-dark.regular7=c9cfc4 -o colors-dark.bright7=e8ece4 \
+  -o csd.preferred=client -o csd.size=18 -o csd.color=ff171615 -o csd.button-width=0 -o csd.border-width=0 \
+  "$@"

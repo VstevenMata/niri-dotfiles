@@ -1,0 +1,13 @@
+{
+    "id": "whatsappButton",
+    "name": "WhatsApp",
+    "description": "Abre o enfoca WhatsApp",
+    "version": "1.0.0",
+    "author": "stevenmq",
+    "type": "widget",
+    "capabilities": ["dankbar-widget"],
+    "component": "./Widget.qml",
+    "icon": "chat",
+    "requires_dms": ">=1.2.0",
+    "permissions": ["process"]
+}

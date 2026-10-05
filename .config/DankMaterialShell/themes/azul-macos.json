@@ -1,0 +1,43 @@
+{
+  "name": "Acero samurái",
+  "dark": {
+    "name": "Acero samurái",
+    "primary": "#86a9ba",
+    "primaryText": "#0b1419",
+    "primaryContainer": "#2c4a58",
+    "secondary": "#a3bfcc",
+    "surface": "#0f161b",
+    "surfaceText": "#e1e6e9",
+    "surfaceVariant": "#3b4850",
+    "surfaceVariantText": "#bfcad0",
+    "surfaceTint": "#86a9ba",
+    "background": "#0f161b",
+    "backgroundText": "#e1e6e9",
+    "outline": "#84939b",
+    "surfaceContainerLowest": "#0b1115",
+    "surfaceContainerLow": "#141c21",
+    "surfaceContainer": "#182127",
+    "surfaceContainerHigh": "#202b32",
+    "surfaceContainerHighest": "#2a363d"
+  },
+  "light": {
+    "name": "Acero samurái",
+    "primary": "#3d6c82",
+    "primaryText": "#ffffff",
+    "primaryContainer": "#cde1ea",
+    "secondary": "#557f93",
+    "surface": "#f5f8fa",
+    "surfaceText": "#161d21",
+    "surfaceVariant": "#dbe4e9",
+    "surfaceVariantText": "#3f4b52",
+    "surfaceTint": "#557f93",
+    "background": "#f5f8fa",
+    "backgroundText": "#161d21",
+    "outline": "#6f7c83",
+    "surfaceContainerLowest": "#f8fbfc",
+    "surfaceContainerLow": "#edf2f5",
+    "surfaceContainer": "#e9eef1",
+    "surfaceContainerHigh": "#e3e9ec",
+    "surfaceContainerHighest": "#dde4e8"
+  }
+}

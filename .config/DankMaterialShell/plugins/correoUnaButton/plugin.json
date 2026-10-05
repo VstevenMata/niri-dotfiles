@@ -1,0 +1,13 @@
+{
+    "id": "correoUnaButton",
+    "name": "Correo UNA",
+    "description": "Abre o enfoca Correo UNA",
+    "version": "1.0.0",
+    "author": "stevenmq",
+    "type": "widget",
+    "capabilities": ["dankbar-widget"],
+    "component": "./Widget.qml",
+    "icon": "mail",
+    "requires_dms": ">=1.2.0",
+    "permissions": ["process"]
+}
