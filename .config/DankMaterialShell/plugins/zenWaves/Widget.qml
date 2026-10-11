@@ -69,6 +69,12 @@ PluginComponent {
         stdout: StdioCollector { onStreamFinished: root.parseLyrics(text) }
     }
 
+    // ✕ del popout: cierra mpv por su socket (igual que `musica -q`)
+    Process {
+        id: quitProc
+        command: ["sh", "-c", `echo '{"command":["quit"]}' | socat - "$XDG_RUNTIME_DIR/musica.sock"`]
+    }
+
     // Ventana de letra de `musica` (mpv): se abre/oculta por su socket
     Process {
         id: ventanaProc
@@ -307,7 +313,7 @@ exec cava -p "$c" < /dev/null`]
                     visible: root.isMusica
                     spacing: 14
                     Ctl { size: 18; name: "open_in_new"; action: () => ventanaProc.running = true }
-                    Ctl { size: 18; name: "close"; action: () => root.player.stop() }
+                    Ctl { size: 18; name: "close"; action: () => quitProc.running = true }
                 }
             }
         }
