@@ -1,63 +1,19 @@
 #!/usr/bin/env bash
-# theme zen|mac|toggle|start — cambia wallpaper, colores, barra, iconos, cursor, efectos y notificaciones.
-# start: lo usa niri al iniciar sesión (zen es el modo principal); espera a DMS y entra en zen desde cero.
+# theme start — modo zen (único modo). Lo usa niri al iniciar sesión: espera a DMS y aplica
+# fondo, no molestar, luz cálida, iconos y cursor. La barra/colores viven en settings.json de DMS.
 set -euo pipefail
-W=~/Pictures/Wallpapers
-D=~/.config/DankMaterialShell
-STATE=~/.local/state/theme-mode
-cur=$(cat "$STATE" 2>/dev/null || echo mac)
+for _ in $(seq 60); do dms ipc call theme getMode >/dev/null 2>&1 && break; sleep 0.5; done
 
-mode=${1:-}
-fresh=0
-if [ "$mode" = start ]; then
-  mode=zen fresh=1
-  for _ in $(seq 60); do dms ipc call theme getMode >/dev/null 2>&1 && break; sleep 0.5; done
-fi
-[ "$mode" = toggle ] && { [ "$cur" = zen ] && mode=mac || mode=zen; }
-
-case "$mode" in
-  zen) WP=$W/zen-bosque-desde-abajo.jpg ICONS=Tela-black-dark CURSOR=Bibata-Modern-Classic
-       SCHEME=scheme-monochrome TILES=surfaceVariant BLUR=false ANIM=0 DND=enableDoNotDisturbIndefinitely
-       NIRI='include "zen.kdl"' NIGHT=enable ;;
-  mac) WP=$W/art-night-purple-02.jpg ICONS=WhiteSur-dark CURSOR=WhiteSur-cursors
-       SCHEME=scheme-tonal-spot TILES=primaryContainer BLUR=true ANIM=1 DND=disableDoNotDisturb
-       NIRI='' NIGHT=disable ;;
-  *) echo "uso: theme zen|mac|toggle|start" >&2; exit 1 ;;
-esac
-
-# Cada modo tiene su barra (bar-zen.json / bar-normal.json). Antes de cambiar se guarda la
-# del modo actual, así lo que ajustes desde DMS en cada modo no se pierde.
-name() { [ "$1" = zen ] && echo zen || echo normal; }
-[ "$cur" != "$mode" ] && jq '.barConfigs[0]' $D/settings.json > $D/bar-$(name "$cur").json
-
-# Cada modo recuerda su fondo: se guarda el actual del modo en el que estás y se usa el guardado
-# del modo al que vas (si existe). Así, si cambias el fondo en zen, se mantiene al volver a zen.
-WPS=~/.local/state/theme-wallpaper
-now_wp=$(dms ipc call wallpaper get 2>/dev/null || true)
-[ -f "$now_wp" ] && echo "$now_wp" > "$WPS-$(name "$cur")"
-saved=$(cat "$WPS-$(name "$mode")" 2>/dev/null || true)
-[ -f "$saved" ] && WP=$saved
-
-# DMS vigila settings.json y recarga solo. En zen (paleta monocroma) los botones activos del centro
-# de control usan surfaceVariant: con primaryContainer quedaban gris claro con letra blanca.
-tmp=$(mktemp)
-jq --arg s $SCHEME --arg tiles $TILES --argjson blur $BLUR --argjson anim $ANIM --slurpfile bar $D/bar-$(name "$mode").json '
-  .matugenScheme=$s | .controlCenterTileColorMode=$tiles | .blurEnabled=$blur | .animationSpeed=$anim | .barConfigs[0]=$bar[0]' \
-  $D/settings.json > "$tmp"
-mv "$tmp" $D/settings.json
-
+WP=$(cat ~/.local/state/theme-wallpaper-zen 2>/dev/null || true)
+[ -f "$WP" ] || WP=~/Pictures/Wallpapers/zen-bosque-desde-abajo.jpg
 dms ipc call wallpaper set "$WP" >/dev/null
-dms ipc call notifications $DND >/dev/null
-dms ipc call night $NIGHT >/dev/null
-gsettings set org.gnome.desktop.interface icon-theme "$ICONS"
-gsettings set org.gnome.desktop.interface cursor-theme "$CURSOR"
+dms ipc call notifications enableDoNotDisturbIndefinitely >/dev/null
+dms ipc call night enable >/dev/null
+gsettings set org.gnome.desktop.interface icon-theme Tela-black-dark
+gsettings set org.gnome.desktop.interface cursor-theme Bibata-Modern-Classic
 
-# niri recarga config.kdl al detectar cambios
-printf 'cursor { xcursor-theme "%s"; xcursor-size 24; }\n%s\n' "$CURSOR" "$NIRI" > ~/.config/niri/theme.kdl
-# El reloj zen cuenta desde que entras (re-ejecutar "theme zen" no lo reinicia)
-{ [ "$mode" = zen ] && [ "$cur" != zen ]; } || [ $fresh = 1 ] && [ "$mode" = zen ] && date +%s > ~/.local/state/theme-zen-since
-# El modo foco (pomodoro) recuerda si lo dejaste activado; si sí, arranca de cero con zen
+# El reloj zen cuenta desde el inicio de sesión; el pomodoro arranca de cero si lo dejaste activado
+date +%s > ~/.local/state/theme-zen-since
 F=~/.local/state/zen-focus-since
-{ { [ "$mode" = zen ] && [ "$cur" != zen ]; } || [ $fresh = 1 ]; } && [ "$(cat $F 2>/dev/null || echo 1)" != 0 ] && date +%s > $F
-echo "$mode" > "$STATE"
-echo "tema: $mode"
+[ "$(cat $F 2>/dev/null || echo 1)" != 0 ] && date +%s > $F
+echo zen > ~/.local/state/theme-mode

@@ -19,6 +19,62 @@ PluginComponent {
 
     function fmt(s) { s = Math.max(0, Math.floor(s || 0)); return Math.floor(s / 60) + ":" + (s % 60 < 10 ? "0" : "") + s % 60 }
 
+    // Letra de LRCLIB (lrclib.net) para cualquier reproductor: sincronizada si hay, si no texto plano
+    property var lyrics: []          // [{ t: segundos, text }]
+    property string plainLyrics: ""
+    property bool lyricsLoading: false
+    readonly property string lyricsKey: player ? (player.trackArtist || "") + "|" + (player.trackTitle || "") : ""
+    readonly property int lyricIndex: {
+        const p = (player?.position ?? 0) + 0.3;
+        let i = -1;
+        for (let k = 0; k < lyrics.length && lyrics[k].t <= p; k++) i = k;
+        return i;
+    }
+    readonly property bool isMusica: (player?.identity ?? "").toLowerCase().includes("mpv")
+
+    // Espera un poco: la duración y el artista llegan después del título
+    onLyricsKeyChanged: { lyrics = []; plainLyrics = ""; lyricsTimer.restart() }
+    Timer { id: lyricsTimer; interval: 800; onTriggered: root.fetchLyrics() }
+
+    function fetchLyrics() {
+        const t = player?.trackTitle ?? "";
+        if (!t) return;
+        const q = (t.includes(" - ") ? t : (player.trackArtist || "") + " " + t)
+            .replace(/\([^)]*\)|\[[^\]]*\]/g, "").replace(/[|｜].*/, "")
+            .replace(/official.*|lyrics?/ig, "").replace(/["“”]/g, "").trim();
+        lyricsProc.running = false;
+        lyricsProc.command = ["curl", "-sf", "--max-time", "10", "--get", "--data-urlencode", "q=" + q, "https://lrclib.net/api/search"];
+        lyricsLoading = true;
+        lyricsProc.running = true;
+    }
+
+    function parseLyrics(txt) {
+        let arr = [];
+        try { arr = JSON.parse(txt) } catch (e) {}
+        // Varias versiones (video, álbum…): la de duración más parecida
+        const len = player?.length ?? 0, dif = r => len > 0 ? Math.abs((r.duration || 0) - len) : 0;
+        const synced = arr.filter(r => r.syncedLyrics).sort((a, b) => dif(a) - dif(b));
+        if (synced.length)
+            lyrics = synced[0].syncedLyrics.split("\n").map(l => {
+                const m = l.match(/^\[(\d+):(\d+(?:\.\d+)?)\]\s*(.*)$/);
+                return m ? { t: +m[1] * 60 + +m[2], text: m[3] || "♪" } : null;
+            }).filter(x => x);
+        else
+            plainLyrics = (arr.find(r => r.plainLyrics) || {}).plainLyrics || "";
+        lyricsLoading = false;
+    }
+
+    Process {
+        id: lyricsProc
+        stdout: StdioCollector { onStreamFinished: root.parseLyrics(text) }
+    }
+
+    // Ventana de letra de `musica` (mpv): se abre/oculta por su socket
+    Process {
+        id: ventanaProc
+        command: ["sh", "-c", `echo '{"command":["cycle","force-window"]}' | socat - "$XDG_RUNTIME_DIR/musica.sock"`]
+    }
+
     Process {
         running: root.playing
         command: ["sh", "-c", `c=$(mktemp); cat > "$c" <<'CONF'
@@ -104,8 +160,8 @@ exec cava -p "$c" < /dev/null`]
         }
     }
 
-    popoutWidth: 340
-    popoutHeight: 430
+    popoutWidth: 680
+    popoutHeight: 390
     popoutContent: Component {
         PopoutComponent {
             headerText: root.player ? "" : "Sin música"
@@ -113,10 +169,10 @@ exec cava -p "$c" < /dev/null`]
 
             Item {
                 width: parent.width
-                height: 390
+                height: 350
                 visible: !!root.player
 
-                Timer { interval: 1000; running: root.playing; repeat: true; onTriggered: root.player?.positionChanged() }
+                Timer { interval: 250; running: root.playing; repeat: true; onTriggered: root.player?.positionChanged() }
 
                 // Fondo: la misma carátula, muy difuminada y oscura
                 Item {
@@ -133,18 +189,21 @@ exec cava -p "$c" < /dev/null`]
                 }
 
                 Column {
-                    anchors.fill: parent
-                    anchors.margins: 4
+                    id: izq
+                    width: 240
+                    anchors { left: parent.left; top: parent.top; bottom: parent.bottom; margins: 4 }
                     spacing: 14
 
                     Rectangle {
-                        width: 190; height: 190; radius: 22
+                        width: 180; height: 180; radius: 22
                         anchors.horizontalCenter: parent.horizontalCenter
                         color: Theme.withAlpha(Theme.surfaceText, 0.06)
                         Image {
                             id: art
                             anchors.fill: parent
                             source: root.player?.trackArtUrl ?? ""
+                            // Miniatura hqdefault de YouTube (480x360): quitar sus franjas negras
+                            sourceClipRect: source.toString().includes("ytimg.com") && source.toString().includes("hqdefault") ? Qt.rect(0, 45, 480, 270) : undefined
                             fillMode: Image.PreserveAspectCrop; asynchronous: true
                             visible: false
                         }
@@ -160,7 +219,6 @@ exec cava -p "$c" < /dev/null`]
                         StyledText { width: parent.width; horizontalAlignment: Text.AlignHCenter; elide: Text.ElideRight; wrapMode: Text.NoWrap; maximumLineCount: 1; text: root.player?.trackArtist || root.player?.identity || ""; font.pixelSize: 12; color: Theme.surfaceText; opacity: 0.55 }
                     }
 
-                    Waves { anchors.horizontalCenter: parent.horizontalCenter; width: 220; height: 26; visible: root.playing }
 
                     // Progreso: clic para saltar a ese punto
                     Column {
@@ -194,6 +252,62 @@ exec cava -p "$c" < /dev/null`]
                         }
                         Ctl { anchors.verticalCenter: parent.verticalCenter; size: 26; name: "skip_next"; action: () => root.player.next() }
                     }
+                }
+
+                // Letra: la línea actual centrada y resaltada; clic en una línea salta a ese punto
+                Item {
+                    anchors { left: izq.right; right: parent.right; top: parent.top; bottom: parent.bottom; leftMargin: 24; rightMargin: 4 }
+                    clip: true
+
+                    ListView {
+                        id: letra
+                        anchors.fill: parent
+                        visible: root.lyrics.length > 0
+                        model: root.lyrics
+                        currentIndex: root.lyricIndex
+                        spacing: 10
+                        interactive: false
+                        highlightRangeMode: ListView.StrictlyEnforceRange
+                        preferredHighlightBegin: height / 2 - 20
+                        preferredHighlightEnd: height / 2 + 20
+                        highlightMoveDuration: 0
+                        delegate: StyledText {
+                            required property var modelData
+                            required property int index
+                            width: letra.width
+                            wrapMode: Text.WordWrap
+                            text: modelData.text
+                            font.pixelSize: index === root.lyricIndex ? 18 : 15
+                            font.weight: index === root.lyricIndex ? Font.DemiBold : Font.Normal
+                            color: Theme.surfaceText
+                            opacity: index === root.lyricIndex ? 1 : 0.35
+                            MouseArea { anchors.fill: parent; enabled: root.player?.canSeek ?? false; cursorShape: Qt.PointingHandCursor; onClicked: root.player.position = modelData.t }
+                        }
+                    }
+
+                    // Sin tiempos: texto plano con scroll
+                    Flickable {
+                        anchors.fill: parent
+                        visible: root.lyrics.length === 0 && root.plainLyrics !== ""
+                        contentHeight: plano.height
+                        StyledText { id: plano; width: parent.width; wrapMode: Text.WordWrap; text: root.plainLyrics; font.pixelSize: 14; lineHeight: 1.3; color: Theme.surfaceText; opacity: 0.8 }
+                    }
+
+                    StyledText {
+                        anchors.centerIn: parent
+                        visible: root.lyrics.length === 0 && root.plainLyrics === ""
+                        text: root.lyricsLoading ? "Buscando letra…" : "Sin letra para esta canción"
+                        font.pixelSize: 13; color: Theme.surfaceText; opacity: 0.4
+                    }
+                }
+
+                // Solo con `musica` (mpv): abrir/ocultar la ventana de letra y quitar la música (cierra mpv)
+                Row {
+                    anchors { right: parent.right; top: parent.top }
+                    visible: root.isMusica
+                    spacing: 14
+                    Ctl { size: 18; name: "open_in_new"; action: () => ventanaProc.running = true }
+                    Ctl { size: 18; name: "close"; action: () => root.player.stop() }
                 }
             }
         }

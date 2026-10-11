@@ -279,5 +279,5 @@ include optional=true "tema.kdl"
 // (ahorra ~700 MB): se abre con su botón de la barra. Un solo perfil y sin extensiones para gastar menos RAM.
 spawn-at-startup "google-chrome" "--profile-directory=UNA" "--disable-extensions" "--app=https://web.whatsapp.com"
 
-// Tema actual (lo escribe ~/.local/bin/theme)
+// Modo zen (fijo)
 include optional=true "theme.kdl"

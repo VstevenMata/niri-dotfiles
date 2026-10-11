@@ -1,10 +1,10 @@
 {
   "dockerManager": {
-    "enabled": true,
+    "enabled": false,
     "groupByCompose": false
   },
   "dndToggle": {
-    "enabled": true
+    "enabled": false
   },
   "captureButton": {
     "enabled": true
@@ -23,9 +23,6 @@
     "enabled": true
   },
   "correoUnaButton": {
-    "enabled": true
-  },
-  "themeToggle": {
     "enabled": true
   },
   "zenTimer": {

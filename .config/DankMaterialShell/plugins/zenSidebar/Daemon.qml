@@ -10,6 +10,7 @@ import qs.Widgets
 // el mouse; ocupa 1/4 de la pantalla de arriba abajo y se cierra al salir (o con Esc).
 // Pendientes: tareas locales de DMS por día (~/.config/niri-calendar-todo/tasks.json, las mismas
 // del calendario del Resumen). Notas: carpetas y .md reales en ~/Notas; borrar manda a la papelera.
+// Listas: checklists en ~/Listas (selector Notas / Listas en la cabecera de la tarjeta).
 Item {
     id: root
     property var pluginService: null
@@ -96,7 +97,65 @@ Item {
         }
     }
     readonly property int noteCount: entries.filter(e => !e.dir).length
-    function refresh() { lister.running = false; lister.running = true }
+    function refresh() { lister.running = false; lister.running = true; listLister.running = false; listLister.running = true }
+
+    // ---------- Listas: ~/Listas/<nombre>.md con "- [ ] algo" / "- [x] algo" (igual que Obsidian) ----------
+    // Las demás líneas del archivo se respetan al guardar.
+    readonly property string listsDir: Quickshell.env("HOME") + "/Listas"
+    property string section: "notes"   // "notes" | "lists"
+    property var lists: []              // {name, done, total}
+    property string openList: ""
+    property string confirmList: ""
+    property var lines: []
+    onOpenListChanged: lines = []   // nunca guardar las líneas de otra lista mientras carga la nueva
+    // filas visibles: categorías ("## Vestimenta") y elementos con casilla
+    // Todo elemento es una compra: sin marcar "Por comprar", marcado "Comprado"
+    readonly property var rows: lines.map((l, i) => {
+        const h = l.match(/^#{1,6}\s+(.*)$/);
+        if (h) return { i: i, text: h[1], heading: true };
+        const m = l.match(/^- \[([ xX])\] ?(.*)$/);
+        return m ? { i: i, text: m[2], done: m[1] !== " ", heading: false } : null;
+    }).filter(x => x)
+    property bool big: false   // vista grande: panel a media pantalla y la tarjeta ocupa todo el alto
+    readonly property var items: rows.filter(x => !x.heading)
+    readonly property int doneCount: items.filter(x => x.done).length
+    function listHue(name) { const i = lists.findIndex(l => l.name === name); return palette[Math.max(0, i) % palette.length] }
+
+    Process {
+        id: listLister
+        command: ["bash", "-c", "mkdir -p \"$1\" && cd \"$1\" && for f in *.md; do [ -e \"$f\" ] || continue; printf '%s\\t%s\\t%s\\n' \"${f%.md}\" \"$(grep -c '^- \\[[xX]\\]' \"$f\")\" \"$(grep -c '^- \\[.\\]' \"$f\")\"; done", "bash", root.listsDir]
+        stdout: StdioCollector {
+            onStreamFinished: root.lists = text.split("\n").filter(l => l).map(l => { const p = l.split("\t"); return { name: p[0], done: +p[1], total: +p[2] } }).sort((a, b) => a.name.localeCompare(b.name))
+        }
+    }
+    FileView {
+        id: listFile
+        path: root.openList ? root.listsDir + "/" + root.openList + ".md" : ""
+        printErrors: false
+        watchChanges: true
+        onFileChanged: reload()
+        onLoaded: root.lines = text().split("\n")
+    }
+    property int confirmItem: -1        // línea del elemento que pide confirmación para quitarse
+    property bool confirmClear: false   // "Quitar los comprados" pide confirmación
+    onLinesChanged: { confirmItem = -1; confirmClear = false }
+    function saveList(ls) { lines = ls; listFile.setText(ls.join("\n")); listLister.running = false; listLister.running = true }
+    function toggleItem(i) { const ls = lines.slice(); ls[i] = /^- \[ \]/.test(ls[i]) ? ls[i].replace(/^- \[ \]/, "- [x]") : ls[i].replace(/^- \[[xX]\]/, "- [ ]"); saveList(ls) }
+    function addItem(t) {
+        t = t.trim(); if (!t) return;
+        const ls = lines.slice();
+        while (ls.length && ls[ls.length - 1] === "") ls.pop();
+        ls.push("- [ ] " + t, "");
+        saveList(ls);
+    }
+    function removeItem(i) { const ls = lines.slice(); ls.splice(i, 1); saveList(ls) }
+    function clearDone() { saveList(lines.filter(l => !/^- \[[xX]\]/.test(l))) }
+    function createList(name) {
+        name = name.trim().replace(/\//g, "-");
+        if (!name) return;
+        if (!lists.some(l => l.name === name)) { openList = name; saveList([]) }
+        else openList = name;
+    }
     Component.onCompleted: refresh()
 
     Process { id: runner; onExited: root.refresh() }
@@ -139,6 +198,7 @@ Item {
     }
     // Crea dentro de `dir` ("" = raíz). La carpeta nueva queda abierta para seguir creando adentro.
     function create(kind, name, dir) {
+        if (kind === "list") return createList(name);
         name = name.trim().replace(/\//g, "-");
         if (!name) return;
         const rel = (dir ? dir + "/" : "") + name + (kind === "note" ? ".md" : "");
@@ -192,7 +252,7 @@ Item {
                 screen: scr.modelData
                 visible: root.zen && (scr.open || slide.running)
                 anchors { left: true; top: true; bottom: true }
-                implicitWidth: Math.round(scr.modelData.width / 4)
+                implicitWidth: Math.round(scr.modelData.width * (root.big ? 0.5 : 0.25))
                 exclusionMode: ExclusionMode.Ignore
                 color: "transparent"
                 WlrLayershell.layer: WlrLayer.Overlay
@@ -240,6 +300,12 @@ Item {
         opacity: ib.containsMouse ? 1 : 0.5
         MouseArea { id: ib; anchors.fill: parent; anchors.margins: -6; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: parent.action() }
     }
+    // Agrandar / achicar la vista de notas y listas
+    component BigBtn: IconBtn {
+        size: 16
+        name: root.big ? "close_fullscreen" : "open_in_full"
+        action: () => root.big = !root.big
+    }
     component Field: DankTextField {
         property var scope
         height: 40
@@ -253,9 +319,11 @@ Item {
         property var scope
         property date shown: new Date(root.today.getFullYear(), root.today.getMonth(), 1)
         property date selected: root.today
+        readonly property bool notesOn: root.section === "notes"
 
         Column {
             id: top
+            visible: !root.big
             width: parent.width
             spacing: 22
 
@@ -366,7 +434,7 @@ Item {
         // ---- Notas: todo dentro de una tarjeta ----
         Rectangle {
             id: notesCard
-            anchors.top: top.bottom; anchors.topMargin: 24
+            anchors.top: root.big ? parent.top : top.bottom; anchors.topMargin: root.big ? 0 : 24
             anchors.bottom: parent.bottom
             anchors.bottomMargin: 8
             width: parent.width
@@ -377,16 +445,33 @@ Item {
 
         Item {
             id: notesHead
-            visible: root.openNote === ""
+            visible: sc.notesOn ? root.openNote === "" : root.openList === ""
             anchors.top: notesCard.top; anchors.topMargin: 16
             anchors.left: notesCard.left; anchors.leftMargin: 18
             anchors.right: notesCard.right; anchors.rightMargin: 14
             height: 30
+            // Notas / Listas: la sección activa en claro, la otra apagada; clic para cambiar
             Row {
                 anchors.verticalCenter: parent.verticalCenter
-                spacing: 8
-                StyledText { anchors.verticalCenter: parent.verticalCenter; text: "Notas"; font.pixelSize: 16; font.weight: Font.Medium; color: Theme.surfaceText }
-                StyledText { anchors.verticalCenter: parent.verticalCenter; text: root.noteCount + (root.noteCount === 1 ? " hoja" : " hojas"); font.pixelSize: 11; color: Theme.surfaceText; opacity: 0.4 }
+                spacing: 14
+                Repeater {
+                    model: [{ id: "notes", label: "Notas" }, { id: "lists", label: "Listas" }]
+                    StyledText {
+                        required property var modelData
+                        readonly property bool on: root.section === modelData.id
+                        anchors.verticalCenter: parent.verticalCenter
+                        text: modelData.label
+                        font.pixelSize: 16; font.weight: on ? Font.Medium : Font.Normal
+                        color: Theme.surfaceText
+                        opacity: on ? 1 : (sma.containsMouse ? 0.6 : 0.3)
+                        MouseArea { id: sma; anchors.fill: parent; anchors.margins: -4; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: { root.section = parent.modelData.id; newField.visible = false } }
+                    }
+                }
+                StyledText {
+                    anchors.verticalCenter: parent.verticalCenter
+                    text: sc.notesOn ? root.noteCount + (root.noteCount === 1 ? " hoja" : " hojas") : root.lists.length + (root.lists.length === 1 ? " lista" : " listas")
+                    font.pixelSize: 11; color: Theme.surfaceText; opacity: 0.4
+                }
             }
             // Herramientas en una cápsula
             Rectangle {
@@ -397,17 +482,19 @@ Item {
                     id: tools
                     anchors.centerIn: parent
                     spacing: 14
-                    IconBtn { size: 16; name: "search"; opacity: searchField.visible ? 1 : 0.5; action: () => { searchField.visible = !searchField.visible; if (searchField.visible) searchField.forceActiveFocus(); else { searchField.text = ""; root.query = "" } } }
-                    IconBtn { size: 16; name: root.allOpen ? "unfold_less" : "unfold_more"; action: () => root.setAll(!root.allOpen) }
-                    IconBtn { size: 16; name: "create_new_folder"; action: () => newField.ask("folder", root.zoom) }
-                    IconBtn { size: 16; name: "note_add"; action: () => newField.ask("note", root.zoom) }
+                    IconBtn { visible: sc.notesOn; size: 16; name: "search"; opacity: searchField.visible ? 1 : 0.5; action: () => { searchField.visible = !searchField.visible; if (searchField.visible) searchField.forceActiveFocus(); else { searchField.text = ""; root.query = "" } } }
+                    IconBtn { visible: sc.notesOn; size: 16; name: root.allOpen ? "unfold_less" : "unfold_more"; action: () => root.setAll(!root.allOpen) }
+                    IconBtn { visible: sc.notesOn; size: 16; name: "create_new_folder"; action: () => newField.ask("folder", root.zoom) }
+                    IconBtn { visible: sc.notesOn; size: 16; name: "note_add"; action: () => newField.ask("note", root.zoom) }
+                    IconBtn { visible: !sc.notesOn; size: 16; name: "playlist_add"; action: () => newField.ask("list", "") }
+                    BigBtn {}
                 }
             }
         }
 
         Column {
             id: navBox
-            visible: root.openNote === ""
+            visible: sc.notesOn && root.openNote === ""
             anchors.top: notesHead.bottom; anchors.topMargin: 10
             anchors.left: notesCard.left; anchors.leftMargin: 14
             anchors.right: notesCard.right; anchors.rightMargin: 14
@@ -460,11 +547,11 @@ Item {
             function ask(k, d) { kind = k; dir = d; root.selectedDir = d; text = ""; visible = true; forceActiveFocus() }
             scope: sc.scope
             visible: false
-            anchors.top: navBox.height > 0 ? navBox.bottom : notesHead.bottom; anchors.topMargin: 10
+            anchors.top: navBox.visible && navBox.height > 0 ? navBox.bottom : notesHead.bottom; anchors.topMargin: 10
             anchors.left: notesCard.left; anchors.leftMargin: 14
             anchors.right: notesCard.right; anchors.rightMargin: 14
-            leftIconName: kind === "note" ? "description" : "folder"
-            placeholderText: (kind === "note" ? "Nueva nota" : "Nueva carpeta") + (dir ? " en " + dir.split("/").pop() : "") + "  ·  Enter para crear"
+            leftIconName: kind === "note" ? "description" : kind === "list" ? "checklist" : "folder"
+            placeholderText: (kind === "note" ? "Nueva nota" : kind === "list" ? "Nueva lista" : "Nueva carpeta") + (dir ? " en " + dir.split("/").pop() : "") + "  ·  Enter para crear"
             onAccepted: { root.create(kind, text, dir); text = ""; visible = false; root.selectedDir = "" }
             onFocusStateChanged: f => { if (!f) { text = ""; visible = false; root.selectedDir = ""; sc.scope.anyFocus = false } }
         }
@@ -476,7 +563,7 @@ Item {
         // Clic en carpeta: abrir/cerrar · doble clic: entrar · clic en hoja: abrir la nota.
         Item {
             id: treeArea
-            visible: root.openNote === ""
+            visible: sc.notesOn && root.openNote === ""
             anchors.top: newField.visible ? newField.bottom : navBox.height > 0 ? navBox.bottom : notesHead.bottom
             anchors.topMargin: 8
             anchors.bottom: notesCard.bottom; anchors.bottomMargin: 10
@@ -751,7 +838,7 @@ Item {
         // ---- Nota abierta: ocupa la tarjeta como una hoja limpia (se guarda sola) ----
         Item {
             id: editorBox
-            visible: root.openNote !== ""
+            visible: sc.notesOn && root.openNote !== ""
             anchors.fill: notesCard
             anchors.margins: 20
 
@@ -788,9 +875,10 @@ Item {
                     }
                     MouseArea { id: bma; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: editorBox.close() }
                 }
+                BigBtn { id: edBig; anchors.right: parent.right; anchors.verticalCenter: parent.verticalCenter }
                 StyledText {
-                    anchors.right: parent.right; anchors.verticalCenter: parent.verticalCenter
-                    width: parent.width - 110
+                    anchors.right: edBig.left; anchors.rightMargin: 14; anchors.verticalCenter: parent.verticalCenter
+                    width: parent.width - 150
                     horizontalAlignment: Text.AlignRight
                     elide: Text.ElideLeft
                     text: { const parts = root.openNote.split("/"); parts.pop(); return parts.length ? parts.join("  ›  ") : "Notas" }
@@ -853,7 +941,7 @@ Item {
                     color: Theme.surfaceText
                     selectionColor: Theme.withAlpha(editorBox.hue, 0.35)
                     selectedTextColor: Theme.surfaceText
-                    font.pixelSize: 15
+                    font.pixelSize: root.big ? 17 : 15
                     font.family: Theme.fontFamily
                     textFormat: TextEdit.PlainText
                     onTextChanged: if (activeFocus) saveTimer.restart()
@@ -881,6 +969,248 @@ Item {
                     StyledText { anchors.verticalCenter: parent.verticalCenter; text: saveTimer.running ? "Escribiendo…" : "Guardado"; font.pixelSize: 11; color: Theme.surfaceText; opacity: 0.45 }
                 }
             }
+        }
+
+        // ---- Listas: índice (anillo de avance · nombre · hechas de total) ----
+        ListView {
+            id: listIndex
+            visible: !sc.notesOn && root.openList === ""
+            anchors.top: newField.visible ? newField.bottom : notesHead.bottom; anchors.topMargin: 8
+            anchors.bottom: notesCard.bottom; anchors.bottomMargin: 10
+            anchors.left: notesCard.left; anchors.leftMargin: 8
+            anchors.right: notesCard.right; anchors.rightMargin: 8
+            clip: true
+            model: root.lists
+            StyledText {
+                visible: parent.count === 0
+                anchors.horizontalCenter: parent.horizontalCenter; y: 24
+                width: parent.width - 40
+                horizontalAlignment: Text.AlignHCenter; wrapMode: Text.Wrap
+                text: "Todavía no hay listas. Crea una con el botón de arriba a la derecha."
+                font.pixelSize: 12; color: Theme.surfaceText; opacity: 0.4
+            }
+            delegate: Item {
+                id: lrow
+                required property var modelData
+                readonly property color hue: root.listHue(modelData.name)
+                readonly property bool asking: root.confirmList === modelData.name
+                readonly property bool hot: lh.hovered || asking
+                width: ListView.view.width; height: 50
+                HoverHandler { id: lh }
+                Rectangle {
+                    anchors.fill: parent; anchors.margins: 2; radius: 16
+                    color: lrow.asking ? Qt.rgba(0.35, 0.14, 0.14, 0.6) : lh.hovered ? Theme.withAlpha(Theme.surfaceText, 0.05) : "transparent"
+                }
+                MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: { root.confirmList = ""; root.openList = lrow.modelData.name } }
+                Ring {
+                    x: 14; anchors.verticalCenter: parent.verticalCenter
+                    hue: lrow.hue
+                    ratio: lrow.modelData.total ? lrow.modelData.done / lrow.modelData.total : 0
+                    DankIcon { visible: lrow.modelData.total > 0 && lrow.modelData.done === lrow.modelData.total; anchors.centerIn: parent; name: "check"; size: 13; color: lrow.hue }
+                }
+                StyledText {
+                    x: 52; anchors.verticalCenter: parent.verticalCenter
+                    width: parent.width - 120; elide: Text.ElideRight
+                    text: lrow.asking ? "¿Borrar " + lrow.modelData.name + "?" : lrow.modelData.name
+                    font.pixelSize: 14; color: Theme.surfaceText
+                }
+                StyledText {
+                    anchors.right: parent.right; anchors.rightMargin: 16; anchors.verticalCenter: parent.verticalCenter
+                    visible: !lrow.hot
+                    text: lrow.modelData.total ? lrow.modelData.done + " de " + lrow.modelData.total : "vacía"
+                    font.pixelSize: 11; font.features: { "tnum": 1 }
+                    color: Theme.surfaceText; opacity: 0.4
+                }
+                IconBtn {
+                    anchors.right: parent.right; anchors.rightMargin: 16; anchors.verticalCenter: parent.verticalCenter
+                    visible: lrow.hot
+                    name: "delete"; size: 16
+                    action: () => {
+                        if (!lrow.asking) { root.confirmList = lrow.modelData.name; return; }
+                        root.confirmList = "";
+                        root.run(["gio", "trash", root.listsDir + "/" + lrow.modelData.name + ".md"]);
+                    }
+                }
+            }
+        }
+
+        // ---- Lista abierta: la regla bajo el título es la barra de avance ----
+        Item {
+            id: listBox
+            visible: !sc.notesOn && root.openList !== ""
+            anchors.fill: notesCard
+            anchors.margins: 20
+            readonly property color hue: root.listHue(root.openList)
+            readonly property real ratio: root.items.length ? root.doneCount / root.items.length : 0
+
+            Rectangle {
+                id: lback
+                width: lbRow.implicitWidth + 20; height: 28; radius: 14
+                color: lbm.containsMouse ? Theme.withAlpha(Theme.surfaceText, 0.08) : Theme.withAlpha(Theme.surfaceText, 0.04)
+                Row {
+                    id: lbRow
+                    anchors.centerIn: parent
+                    spacing: 6
+                    DankIcon { anchors.verticalCenter: parent.verticalCenter; name: "arrow_back"; size: 15; color: Theme.surfaceText; opacity: 0.75 }
+                    StyledText { anchors.verticalCenter: parent.verticalCenter; text: "Listas"; font.pixelSize: 12; color: Theme.surfaceText; opacity: 0.75 }
+                }
+                MouseArea { id: lbm; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: root.openList = "" }
+            }
+            BigBtn { anchors.right: parent.right; anchors.verticalCenter: lback.verticalCenter }
+
+            StyledText {
+                id: lTitle
+                anchors.top: lback.bottom; anchors.topMargin: 22
+                width: parent.width; elide: Text.ElideRight
+                text: root.openList
+                font.pixelSize: 22; font.weight: Font.Medium
+                color: Theme.surfaceText
+            }
+            Rectangle {
+                id: lbar
+                anchors.top: lTitle.bottom; anchors.topMargin: 16
+                width: parent.width; height: 3; radius: 1.5
+                color: Qt.rgba(listBox.hue.r, listBox.hue.g, listBox.hue.b, 0.14)
+                Rectangle { width: Math.max(height, parent.width * listBox.ratio); visible: listBox.ratio > 0; height: parent.height; radius: 1.5; color: listBox.hue; opacity: 0.85 }
+            }
+
+            ListView {
+                id: itemsView
+                anchors.top: lbar.bottom; anchors.topMargin: 14
+                anchors.bottom: addItemField.top; anchors.bottomMargin: 10
+                width: parent.width
+                clip: true
+                spacing: 2
+                model: root.rows
+                StyledText {
+                    visible: parent.count === 0
+                    y: 8; width: parent.width; wrapMode: Text.Wrap
+                    text: "Lista vacía. Escribe abajo para agregar el primer elemento."
+                    font.pixelSize: 13; color: Theme.surfaceText; opacity: 0.4
+                }
+                delegate: Item {
+                    id: it
+                    required property var modelData
+                    readonly property bool cat: modelData.heading
+                    // de una categoría: sus elementos hasta la siguiente categoría
+                    readonly property var mine: { if (!cat) return []; const out = []; let on = false; for (const x of root.rows) { if (x.heading) on = x.i === modelData.i; else if (on) out.push(x); } return out }
+                    width: ListView.view.width
+                    height: cat ? 40 : Math.max(38, itText.implicitHeight + 16)
+                    HoverHandler { id: ih }
+                    // categoría: subtítulo del color de la lista con su avance a la derecha
+                    StyledText { visible: it.cat; x: 8; anchors.bottom: parent.bottom; anchors.bottomMargin: 6; text: it.modelData.text; font.pixelSize: 13; font.weight: Font.DemiBold; color: listBox.hue }
+                    StyledText {
+                        visible: it.cat
+                        anchors.right: parent.right; anchors.rightMargin: 10; anchors.bottom: parent.bottom; anchors.bottomMargin: 7
+                        text: it.mine.filter(x => x.done).length + " de " + it.mine.length + " comprados"
+                        font.pixelSize: 11; font.features: { "tnum": 1 }; color: Theme.surfaceText; opacity: 0.35
+                    }
+                    readonly property bool asking: !cat && root.confirmItem === modelData.i
+                    Rectangle { visible: !it.cat; anchors.fill: parent; radius: 12; color: it.asking ? Qt.rgba(0.35, 0.14, 0.14, 0.6) : ih.hovered ? Theme.withAlpha(Theme.surfaceText, 0.05) : "transparent" }
+                    // clic en la fila: marca/desmarca; si estaba preguntando "¿Quitar?", solo cancela
+                    MouseArea { enabled: !it.cat; anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: { if (it.asking) root.confirmItem = -1; else root.toggleItem(it.modelData.i) } }
+                    // casilla: aro del color de la lista; marcada, se rellena con ✓
+                    Rectangle {
+                        visible: !it.cat
+                        x: 8; anchors.verticalCenter: parent.verticalCenter
+                        width: 20; height: 20; radius: 10
+                        color: it.modelData.done ? listBox.hue : "transparent"
+                        border.width: it.modelData.done ? 0 : 1.5
+                        border.color: Qt.rgba(listBox.hue.r, listBox.hue.g, listBox.hue.b, ih.hovered ? 0.9 : 0.55)
+                        DankIcon { visible: !!it.modelData.done; anchors.centerIn: parent; name: "check"; size: 14; color: Theme.surface }
+                    }
+                    StyledText {
+                        id: itText
+                        visible: !it.cat
+                        x: 40; anchors.verticalCenter: parent.verticalCenter
+                        width: parent.width - 150
+                        wrapMode: Text.Wrap
+                        text: it.modelData.text
+                        font.pixelSize: root.big ? 16 : 14; font.strikeout: !!it.modelData.done
+                        color: Theme.surfaceText
+                        opacity: it.modelData.done ? 0.35 : 0.95
+                    }
+                    // compras: etiqueta de estado (la ✕ la reemplaza al pasar el mouse)
+                    Rectangle {
+                        visible: !it.cat && !ih.hovered && !it.asking
+                        anchors.right: parent.right; anchors.rightMargin: 8; anchors.verticalCenter: parent.verticalCenter
+                        width: tag.implicitWidth + 16; height: 22; radius: 11
+                        color: it.modelData.done ? Qt.rgba(listBox.hue.r, listBox.hue.g, listBox.hue.b, 0.18) : "transparent"
+                        border.width: it.modelData.done ? 0 : 1
+                        border.color: Theme.withAlpha(Theme.surfaceText, 0.15)
+                        StyledText {
+                            id: tag
+                            anchors.centerIn: parent
+                            text: it.modelData.done ? "Comprado" : "Por comprar"
+                            font.pixelSize: 11
+                            color: it.modelData.done ? listBox.hue : Theme.surfaceText
+                            opacity: it.modelData.done ? 1 : 0.5
+                        }
+                    }
+                    // ✕ pide confirmación: primer clic pregunta, segundo quita
+                    Row {
+                        anchors.right: parent.right; anchors.rightMargin: 10; anchors.verticalCenter: parent.verticalCenter
+                        visible: !it.cat && (ih.hovered || it.asking)
+                        spacing: 8
+                        StyledText { visible: it.asking; anchors.verticalCenter: parent.verticalCenter; text: "¿Quitar?"; font.pixelSize: 11; color: Theme.surfaceText }
+                        IconBtn {
+                            anchors.verticalCenter: parent.verticalCenter
+                            name: it.asking ? "delete" : "close"; size: 15
+                            action: () => { if (it.asking) root.removeItem(it.modelData.i); else root.confirmItem = it.modelData.i }
+                        }
+                    }
+                }
+            }
+
+            Field {
+                id: addItemField
+                scope: sc.scope
+                anchors.bottom: lfoot.top; anchors.bottomMargin: 12
+                width: parent.width
+                leftIconName: "add"
+                placeholderText: "Agregar a " + root.openList + "…"
+                onAccepted: { root.addItem(text); text = ""; scope.anyFocus = false; itemsView.positionViewAtEnd() }
+            }
+
+            Item {
+                id: lfoot
+                anchors.bottom: parent.bottom
+                width: parent.width; height: 18
+                StyledText {
+                    anchors.verticalCenter: parent.verticalCenter
+                    text: root.items.length ? root.doneCount + " de " + root.items.length + " comprados" : "Sin elementos"
+                    font.pixelSize: 11; font.features: { "tnum": 1 }
+                    color: Theme.surfaceText; opacity: 0.4
+                }
+                StyledText {
+                    anchors.right: parent.right; anchors.verticalCenter: parent.verticalCenter
+                    visible: root.doneCount > 0
+                    text: root.confirmClear ? "¿Quitar " + root.doneCount + "? Clic para confirmar" : "Quitar los comprados"
+                    font.pixelSize: 11; color: root.confirmClear ? "#E0A39A" : Theme.surfaceText; opacity: cdm.containsMouse || root.confirmClear ? 0.9 : 0.45
+                    MouseArea { id: cdm; anchors.fill: parent; anchors.margins: -4; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: { if (root.confirmClear) root.clearDone(); else { root.confirmClear = true; clearTimeout.restart() } } }
+                    // si no confirma en 4 s, vuelve a su texto normal
+                    Timer { id: clearTimeout; interval: 4000; onTriggered: root.confirmClear = false }
+                }
+            }
+        }
+    }
+
+    // Anillo de avance de una lista
+    component Ring: Canvas {
+        property real ratio: 0
+        property color hue: Theme.surfaceText
+        width: 24; height: 24
+        onRatioChanged: requestPaint()
+        onHueChanged: requestPaint()
+        onPaint: {
+            const c = getContext("2d"), m = width / 2, r = m - 1.5;
+            c.reset();
+            c.lineWidth = 2.5; c.lineCap = "round";
+            c.strokeStyle = Qt.rgba(hue.r, hue.g, hue.b, 0.18);
+            c.beginPath(); c.arc(m, m, r, 0, 2 * Math.PI); c.stroke();
+            if (ratio <= 0) return;
+            c.strokeStyle = Qt.rgba(hue.r, hue.g, hue.b, 0.9);
+            c.beginPath(); c.arc(m, m, r, -Math.PI / 2, -Math.PI / 2 + 2 * Math.PI * ratio); c.stroke();
         }
     }
 }

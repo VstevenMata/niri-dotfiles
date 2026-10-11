@@ -19,7 +19,7 @@
   "clockDateFormat": "ddd d MMM",
   "appLauncherGridColumns": 3,
   "spotlightSectionViewModes": {
-    "apps": "list"
+    "apps": "grid"
   },
   "useAutoLocation": true,
   "iconThemeDark": "WhiteSur-dark",
@@ -148,61 +148,24 @@
           "id": "pmut8uhql3xr1",
           "screen": "eDP-1",
           "widgets": [
-            "zenClock"
+            "zenClock",
+            "zenTimer"
           ],
           "edge": "top",
           "align": "center",
           "pos": 960
         },
         {
-          "id": "pmut8uoxa6hfa",
-          "screen": "eDP-1",
-          "widgets": [
-            "zenTimer"
-          ],
-          "edge": "left",
-          "align": "end",
-          "pos": 1197
-        },
-        {
-          "id": "pmut8uruzavqs",
-          "screen": "eDP-1",
-          "widgets": [
-            "idleInhibitor"
-          ],
-          "edge": "top",
-          "align": "start",
-          "pos": 143
-        },
-        {
-          "id": "pmut8uuqvkxge",
-          "screen": "eDP-1",
-          "widgets": [
-            "cpuUsage"
-          ],
-          "edge": "right",
-          "align": "end",
-          "pos": 1120
-        },
-        {
-          "id": "pmut8v9gxeyzq",
-          "screen": "eDP-1",
-          "widgets": [
-            "memUsage"
-          ],
-          "edge": "right",
-          "align": "end",
-          "pos": 1197
-        },
-        {
           "id": "pmutbbnb08bgn",
           "screen": "eDP-1",
           "widgets": [
-            "battery"
+            "battery",
+            "cpuUsage",
+            "memUsage"
           ],
-          "edge": "bottom",
-          "align": "end",
-          "pos": 1869
+          "edge": "top",
+          "align": "start",
+          "pos": 105
         },
         {
           "id": "pmuuft0g4fcoc",
@@ -238,7 +201,7 @@
           "id": "pmuuft0g4cg13",
           "screen": "DP-3",
           "widgets": [
-            "themeToggle"
+            "correoUnaButton"
           ],
           "edge": "top",
           "align": "start",
@@ -252,7 +215,7 @@
           ],
           "edge": "top",
           "align": "start",
-          "pos": 517
+          "pos": 577
         },
         {
           "id": "pmuuft0g4jood",
@@ -262,7 +225,7 @@
           ],
           "edge": "top",
           "align": "start",
-          "pos": 451
+          "pos": 511
         },
         {
           "id": "pmuuft0g4u194",
@@ -282,7 +245,7 @@
           ],
           "edge": "top",
           "align": "center",
-          "pos": 641
+          "pos": 701
         },
         {
           "id": "pmuuft0g4jwx6",
@@ -302,14 +265,15 @@
           ],
           "edge": "top",
           "align": "center",
-          "pos": 744
+          "pos": 804
         },
         {
           "id": "pmuuft0jkzyxl",
           "screen": "HDMI-A-1",
           "widgets": [
             "zenTimer",
-            "themeToggle"
+            "correoUnaButton",
+            "whatsappButton"
           ],
           "edge": "top",
           "align": "start",
@@ -383,7 +347,7 @@
           ],
           "edge": "top",
           "align": "start",
-          "pos": 386
+          "pos": 446
         },
         {
           "id": "pmuutdp4h9uy7",
@@ -399,31 +363,24 @@
           "id": "pmuuvipp0kzew",
           "screen": "eDP-1",
           "widgets": [
-            "captureButton"
+            "captureButton",
+            "idleInhibitor"
           ],
           "edge": "top",
           "align": "start",
-          "pos": 76
+          "pos": 3
         },
         {
           "id": "pmuuvjz1ozunq",
           "screen": "eDP-1",
           "widgets": [
-            "notificationButton"
+            "notificationButton",
+            "correoUnaButton",
+            "whatsappButton"
           ],
           "edge": "top",
           "align": "end",
-          "pos": 1816
-        },
-        {
-          "id": "pmuuw95w0uzue",
-          "screen": "eDP-1",
-          "widgets": [
-            "themeToggle"
-          ],
-          "edge": "top",
-          "align": "start",
-          "pos": 3
+          "pos": 1824
         },
         {
           "id": "pmuuzerz273ow",
@@ -463,7 +420,7 @@
           ],
           "edge": "top",
           "align": "end",
-          "pos": 1738
+          "pos": 1741
         },
         {
           "id": "pmuv629dshfql",
@@ -493,7 +450,7 @@
           ],
           "edge": "top",
           "align": "start",
-          "pos": 143
+          "pos": 203
         },
         {
           "id": "pmuv629dt2vbh",
@@ -543,7 +500,7 @@
           ],
           "edge": "top",
           "align": "start",
-          "pos": 76
+          "pos": 136
         },
         {
           "id": "pmuv629dth1p7",
@@ -559,7 +516,7 @@
           "id": "pmuv629dtrbhu",
           "screen": "DP-1",
           "widgets": [
-            "themeToggle"
+            "correoUnaButton"
           ],
           "edge": "top",
           "align": "start",
@@ -574,6 +531,26 @@
           "edge": "top",
           "align": "end",
           "pos": 1917
+        },
+        {
+          "id": "pmuuft0g4cg13w",
+          "screen": "DP-3",
+          "widgets": [
+            "whatsappButton"
+          ],
+          "edge": "top",
+          "align": "start",
+          "pos": 386
+        },
+        {
+          "id": "pmuv629dtrbhuw",
+          "screen": "DP-1",
+          "widgets": [
+            "whatsappButton"
+          ],
+          "edge": "top",
+          "align": "start",
+          "pos": 63
         }
       ]
     }

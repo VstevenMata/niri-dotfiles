@@ -70,11 +70,17 @@ window-rule {
 }
 binds {
     Mod+S hotkey-overlay-title="Isla (abrir/cerrar)" { spawn "dms" "ipc" "call" "isla" "toggle"; }
-    // Cambiar entre modo zen y normal (~/.local/bin/theme)
-    Mod+Shift+Z hotkey-overlay-title="Modo zen / normal" { spawn "sh" "-c" "$HOME/.local/bin/theme toggle"; }
     // Mosaico del escritorio actual: menú con la forma (~/.local/bin/niri-mosaico)
     Mod+Shift+M hotkey-overlay-title="Mosaico (elegir forma)" { spawn "sh" "-c" "$HOME/.local/bin/niri-mosaico menu"; }
 }
 
 // Mosaico: el servicio reorganiza los escritorios con mosaico al abrirse/cerrarse ventanas (Super+Shift+M)
 spawn-at-startup "sh" "-c" "$HOME/.local/bin/niri-mosaico daemon"
+
+// Ventanita de `musica` (mpv sin video + letra): flotante, abajo a la derecha, sin robar el foco
+window-rule {
+    match app-id="^musica$"
+    open-floating true
+    open-focused false
+    default-floating-position x=20 y=20 relative-to="bottom-right"
+}

@@ -131,6 +131,7 @@ EOF
     patch_cc || echo "dms-run-custom: el parche del centro de control no encaja; sigue sin él" >&2
     patch_notif || echo "dms-run-custom: el parche de notificaciones no encaja; sigue sin él" >&2
     patch_pills || echo "dms-run-custom: el parche de píldoras sueltas no encaja; sigue sin él" >&2
+    patch_launcher || echo "dms-run-custom: el parche del lanzador no encaja; sigue sin él" >&2
     add_island
     add_dash
     add_sounds
@@ -141,6 +142,14 @@ EOF
 # No editar ~/.local/share/dms-ui-custom a mano: se regenera en cada arranque; los cambios van en ~/.config/dms-pills.
 patch_pills() {
     local d="$HOME/.config/dms-pills"
+    [ -f "$d/patch.py" ] || return 0
+    python3 "$d/patch.py" "$DST"
+}
+
+# Lanzador de apps (Super+Espacio, ~/.config/dms-launcher): baja desde arriba con fade
+# y filas de apps más limpias. patch.py es todo o nada.
+patch_launcher() {
+    local d="$HOME/.config/dms-launcher"
     [ -f "$d/patch.py" ] || return 0
     python3 "$d/patch.py" "$DST"
 }

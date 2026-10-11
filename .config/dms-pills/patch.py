@@ -195,6 +195,13 @@ edit("Modules/Plugins/BasePill.qml", """            rippleLayer.trigger(ripplePo
             if (mouse.button !== Qt.LeftButton)
                 return;
             if (popoutTarget) {""")
+# Al clic, el panel del widget se abre junto a su píldora suelta (no donde estaría en la barra)
+edit("Modules/Plugins/BasePill.qml", """                    popoutTarget.setTriggerPosition(pos.x, pos.y, pos.width, section, currentScreen, barPosition, barThickness, root.barSpacing, root.barConfig);""",
+     """                    const pt = FloatingPillService.popupTrigger(root.visualContent, Math.max(4, root.barSpacing));
+                    if (pt)
+                        popoutTarget.setTriggerPosition(pt.x, pt.y, pt.width, section, currentScreen, pt.barPosition, barThickness, root.barSpacing, root.barConfig);
+                    else
+                        popoutTarget.setTriggerPosition(pos.x, pos.y, pos.width, section, currentScreen, barPosition, barThickness, root.barSpacing, root.barConfig);""")
 for w in ["Battery", "RamMonitor", "CpuMonitor", "CpuTemperature", "GpuTemperature", "ClipboardButton", "ColorPicker", "Vpn", "SystemUpdate"]:
     edit(f"Modules/DankBar/Widgets/{w}.qml", "        onPressed: ", "        onClicked: ")
 

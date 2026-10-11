@@ -199,7 +199,6 @@ Item {
         y: hero.height + root.gap
         width: parent.width
         spacing: root.gap
-        Chip { icon: "spa"; label: "Zen"; active: root.zen; action: () => Quickshell.execDetached([Quickshell.env("HOME") + "/.local/bin/theme", "toggle"]) }
         Chip { icon: SessionData.doNotDisturb ? "notifications_off" : "notifications"; label: "No molestar"; active: SessionData.doNotDisturb
             action: () => Quickshell.execDetached(["dms", "ipc", "call", "notifications", SessionData.doNotDisturb ? "disableDoNotDisturb" : "enableDoNotDisturbIndefinitely"]) }
         Chip { icon: "nightlight"; label: "Luz cálida"; active: DisplayService.nightModeEnabled; action: () => DisplayService.toggleNightMode() }
