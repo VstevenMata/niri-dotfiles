@@ -75,10 +75,10 @@ PluginComponent {
         command: ["sh", "-c", `echo '{"command":["quit"]}' | socat - "$XDG_RUNTIME_DIR/musica.sock"`]
     }
 
-    // Ventana de letra de `musica` (mpv): se abre/oculta por su socket
+    // Ventana de `musica` (mpv) con carátula y letra: se abre/oculta por su socket (ver letras.lua)
     Process {
         id: ventanaProc
-        command: ["sh", "-c", `echo '{"command":["cycle","force-window"]}' | socat - "$XDG_RUNTIME_DIR/musica.sock"`]
+        command: ["sh", "-c", `echo '{"command":["script-message","ventana"]}' | socat - "$XDG_RUNTIME_DIR/musica.sock"`]
     }
 
     Process {
