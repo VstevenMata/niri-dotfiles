@@ -801,6 +801,16 @@ FocusScope {
                 Layout.fillHeight: true
                 spacing: 0
 
+                // Logo de niri pequeño arriba al centro (github.com/niri-wm/niri, docs/wiki/logo/niri-icon.svg)
+                Image {
+                    Layout.alignment: Qt.AlignHCenter
+                    Layout.preferredWidth: 44
+                    Layout.preferredHeight: 44
+                    source: "file://" + Quickshell.env("HOME") + "/.local/share/fedora-niri/niri-icon.svg"
+                    sourceSize: Qt.size(88, 88)
+                    fillMode: Image.PreserveAspectFit
+                }
+
                 Item {
                     Layout.fillHeight: true
                 }

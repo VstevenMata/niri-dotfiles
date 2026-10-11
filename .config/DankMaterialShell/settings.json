@@ -40,8 +40,7 @@
     }
   },
   "launcherLogoMode": "custom",
-  "launcherLogoCustomPath": "/home/stevenmq/.local/share/fedora-niri/torii.svg",
-  "launcherLogoColorOverride": "#ffffff",
+  "launcherLogoCustomPath": "/home/stevenmq/.local/share/fedora-niri/niri-icon.svg",
   "launcherLogoColorInvertOnMode": true,
   "launcherLogoBrightness": 1,
   "launcherLogoContrast": 0.15,
@@ -171,6 +170,7 @@
           "id": "pmuuft0g4fcoc",
           "screen": "DP-3",
           "widgets": [
+            "launcherButton",
             "zenClock"
           ],
           "edge": "top",
@@ -271,6 +271,7 @@
           "id": "pmuuft0jkzyxl",
           "screen": "HDMI-A-1",
           "widgets": [
+            "launcherButton",
             "zenTimer",
             "correoUnaButton",
             "whatsappButton"
@@ -363,6 +364,7 @@
           "id": "pmuuvipp0kzew",
           "screen": "eDP-1",
           "widgets": [
+            "launcherButton",
             "captureButton",
             "idleInhibitor"
           ],
@@ -516,6 +518,7 @@
           "id": "pmuv629dtrbhu",
           "screen": "DP-1",
           "widgets": [
+            "launcherButton",
             "correoUnaButton"
           ],
           "edge": "top",
