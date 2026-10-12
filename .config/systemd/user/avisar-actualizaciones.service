@@ -1,0 +1,7 @@
+[Unit]
+Description=Avisar si hay actualizaciones de Fedora y Flatpak (no instala nada)
+After=graphical-session.target
+
+[Service]
+Type=oneshot
+ExecStart=%h/.local/bin/avisar-actualizaciones

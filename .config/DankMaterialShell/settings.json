@@ -160,26 +160,6 @@
           "pos": 3
         },
         {
-          "id": "pmv4xn1lui1sl",
-          "screen": "eDP-1",
-          "widgets": [
-            "zenTimer"
-          ],
-          "edge": "top",
-          "align": "start",
-          "pos": 3
-        },
-        {
-          "id": "pmv4xpg64ukmc",
-          "screen": "eDP-1",
-          "widgets": [
-            "vpn"
-          ],
-          "edge": "top",
-          "align": "start",
-          "pos": 3
-        },
-        {
           "id": "pmv4ycv4btqcc",
           "screen": "HDMI-A-1",
           "widgets": [

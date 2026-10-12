@@ -252,6 +252,9 @@ binds {
     // Editor de píldoras (plugin pillManager); reemplaza las columnas en pestañas de DMS, que pasan a Super+Alt+W
     Mod+W hotkey-overlay-title="Editar píldoras" { spawn "dms" "ipc" "call" "pills" "toggle"; }
     Mod+Alt+W { toggle-column-tabbed-display; }
+    // Meter/sacar la ventana de la columna vecina (Super+[ ] no existen en teclado latam)
+    Mod+Alt+Left  { consume-or-expel-window-left; }
+    Mod+Alt+Right { consume-or-expel-window-right; }
     Mod+Y hotkey-overlay-title="Carrusel de fondos" { spawn "sh" "-c" "qs kill -c wallpicker >/dev/null 2>&1 || WP_OUTPUT=$(niri msg -j focused-output | jq -r .name) qs -c wallpicker"; }
 }
 
