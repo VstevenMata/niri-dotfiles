@@ -160,6 +160,9 @@ edit("Modules/DankBar/DankBarWindow.qml", """            height: active ? body.i
 edit("Modules/DankBar/DankBarBody.qml", "    readonly property real surfaceExclusiveZone: ",
      "    readonly property bool _pillsBarEmpty: !barWindow.isVertical && [_leftSection, _centerSection, _rightSection].every(s => (s?.implicitWidth ?? 0) <= 4) && !(hostWindow._topPillRects?.length)\n"
      "    readonly property real surfaceExclusiveZone: _pillsBarEmpty ? 0 : ")
+# ...y tampoco toma clics: si no, tapa la parte de arriba de la app que subió
+edit("Modules/DankBar/DankBarWindow.qml", "        item: body.clickThroughEnabled ? null : body.inputMaskItem",
+     "        item: (body.clickThroughEnabled || body._pillsBarEmpty) ? null : body.inputMaskItem")
 
 # Plugins: sin versión vertical usan la horizontal en los bordes laterales; paneles junto a su píldora
 P = "Modules/Plugins/PluginComponent.qml"
