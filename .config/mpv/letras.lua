@@ -19,6 +19,10 @@ mp.register_script_message('ventana', function() ventana(mp.get_property('force-
 mp.register_event('file-loaded', function()
     local id = mp.get_property('path', ''):match('[?&]v=([%w_-]+)') or mp.get_property('path', ''):match('youtu%.be/([%w_-]+)')
     if not id then return end
+    -- Con `musica -V` ya hay video de verdad: nada de carátula
+    for _, t in ipairs(mp.get_property_native('track-list', {})) do
+        if t.type == 'video' and not t.albumart then return end
+    end
     -- hqdefault (480x360) trae franjas negras arriba y abajo: se recortan
     mp.set_property('video-crop', '480x270+0+45')
     mp.commandv('video-add', 'https://i.ytimg.com/vi/' .. id .. '/hqdefault.jpg',

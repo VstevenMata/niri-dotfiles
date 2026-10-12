@@ -158,16 +158,6 @@
           "edge": "top",
           "align": "start",
           "pos": 3
-        },
-        {
-          "id": "pmv4ycv4btqcc",
-          "screen": "HDMI-A-1",
-          "widgets": [
-            "powerMenuButton"
-          ],
-          "edge": "top",
-          "align": "start",
-          "pos": 3
         }
       ]
     }
