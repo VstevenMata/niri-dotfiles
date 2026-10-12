@@ -35,7 +35,8 @@ PluginComponent {
     }
 
     function flash(k) {
-        if (!ready) return;
+        // Cambios hechos desde un control en pantalla (isla, popout de música) no avisan
+        if (!ready || SessionData.suppressOSD) return;
         kind = k;
         shown = true;
         hideTimer.restart();

@@ -86,13 +86,6 @@ files[p] = s[:i].rstrip() + """
     // Píldoras de esta barra en esta pantalla (cada pantalla las suyas), y el espacio que reservan
     readonly property var _floatingPills: (barConfig?.island ?? false) ? [] : (barConfig?.floatingPills ?? []).filter(p => p.screen === (barWindow?.screen?.name ?? "") && p.edge)
 
-    // Pantalla sin píldoras propias (monitor nuevo): empieza con una copia de las de otra
-    Timer {
-        interval: 500
-        running: !(topBarContent.barConfig?.island ?? false)
-        onTriggered: FloatingPillService.seedScreen(topBarContent.barConfig?.id ?? "default", topBarContent.barWindow?.screen?.name ?? "")
-    }
-
     Variants {
         // Bordes de esta pantalla con píldoras visibles (arriba ya reserva la barra). Cada pantalla por su cuenta.
         model: ["bottom", "left", "right"].filter(e => Object.values(FloatingPillService.rects).some(r => r.edge === e && r.screen === (topBarContent.barWindow?.screen?.name ?? "")))

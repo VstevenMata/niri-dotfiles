@@ -69,12 +69,6 @@ PluginComponent {
         stdout: StdioCollector { onStreamFinished: root.parseLyrics(text) }
     }
 
-    // ✕ del popout: cierra mpv por su socket (igual que `musica -q`)
-    Process {
-        id: quitProc
-        command: ["sh", "-c", `echo '{"command":["quit"]}' | socat - "$XDG_RUNTIME_DIR/musica.sock"`]
-    }
-
     // Ventana de `musica` (mpv) con carátula y letra: se abre/oculta por su socket (ver letras.lua)
     Process {
         id: ventanaProc
@@ -151,9 +145,34 @@ exec cava -p "$c" < /dev/null`]
         MouseArea { id: ma; anchors.fill: parent; anchors.margins: -4; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: parent.action() }
     }
 
-    // El centro de la barra queda vacío hasta que suena música
-    onPlayingChanged: playing ? clearVisibilityOverride() : setVisibilityOverride(false)
-    Component.onCompleted: if (!playing) setVisibilityOverride(false)
+    // Última canción de `musica` al cerrarse ("segundo<TAB>url", lo escribe letras.lua):
+    // sin reproductor, el ▶ la vuelve a abrir desde ese punto
+    property string ultima: ""
+    FileView {
+        path: Quickshell.env("HOME") + "/.local/state/musica-ultima"
+        watchChanges: true
+        printErrors: false
+        onFileChanged: reload()
+        onLoaded: root.ultima = text().trim()
+        onLoadFailed: root.ultima = ""
+    }
+    function play() {
+        if (player) return player.togglePlaying();
+        const [t, url] = ultima.split("\t");
+        Quickshell.execDetached(["fish", "-c", "musica -d $argv[1] $argv[2]", t, url]);
+    }
+
+    // ⏹ apaga del todo: `musica` se cierra sin guardar para reanudar y el widget desaparece
+    function stop() {
+        if (isMusica) Quickshell.execDetached(["sh", "-c", `echo '{"command":["script-message","apagar"]}' | socat - "$XDG_RUNTIME_DIR/musica.sock"`]);
+        else if (player) player.stop();
+        else Quickshell.execDetached(["rm", "-f", Quickshell.env("HOME") + "/.local/state/musica-ultima"]);
+    }
+
+    // El centro de la barra queda vacío si no hay reproductor ni canción para reanudar
+    readonly property bool shown: !!player || ultima.includes("\t")
+    onShownChanged: shown ? clearVisibilityOverride() : setVisibilityOverride(false)
+    Component.onCompleted: if (!shown) setVisibilityOverride(false)
 
     horizontalBarPill: Component {
         Row {
@@ -161,13 +180,14 @@ exec cava -p "$c" < /dev/null`]
             Ctl { anchors.verticalCenter: parent.verticalCenter; visible: root.playing; size: 16; name: "skip_previous"; action: () => root.player.previous() }
             Waves { anchors.verticalCenter: parent.verticalCenter; visible: root.playing }
             Ctl { anchors.verticalCenter: parent.verticalCenter; visible: root.playing; size: 16; name: "skip_next"; action: () => root.player.next() }
-            // En pausa: solo una nota tenue (hover abre el reproductor)
-            DankIcon { anchors.verticalCenter: parent.verticalCenter; visible: !root.playing; name: "music_note"; size: 16; color: Theme.surfaceText; opacity: 0.5 }
+            // En pausa: ▶ para seguir sin abrir nada
+            Ctl { anchors.verticalCenter: parent.verticalCenter; visible: !root.playing; size: 18; name: "play_arrow"; action: () => root.play() }
+            Ctl { anchors.verticalCenter: parent.verticalCenter; size: 16; name: "stop"; action: () => root.stop() }
         }
     }
 
     popoutWidth: 680
-    popoutHeight: 390
+    popoutHeight: 436
     popoutContent: Component {
         PopoutComponent {
             headerText: root.player ? "" : "Sin música"
@@ -175,7 +195,7 @@ exec cava -p "$c" < /dev/null`]
 
             Item {
                 width: parent.width
-                height: 350
+                height: 396
                 visible: !!root.player
 
                 Timer { interval: 250; running: root.playing; repeat: true; onTriggered: root.player?.positionChanged() }
@@ -258,6 +278,65 @@ exec cava -p "$c" < /dev/null`]
                         }
                         Ctl { anchors.verticalCenter: parent.verticalCenter; size: 26; name: "skip_next"; action: () => root.player.next() }
                     }
+
+                    // Volumen del sistema sin el aviso de la barra: icono (silencio), −, barrita (clic, arrastre o rueda), +
+                    Rectangle {
+                        id: vol
+                        width: parent.width; height: 34; radius: 17
+                        color: Theme.withAlpha(Theme.surfaceText, volHover.hovered ? 0.09 : 0.05)
+                        Behavior on color { ColorAnimation { duration: 150 } }
+                        readonly property var audio: AudioService.sink?.audio ?? null
+                        readonly property bool muted: audio?.muted ?? false
+                        readonly property int pct: Math.round((audio?.volume ?? 0) * 100)
+                        readonly property real ratio: Math.min(1, pct / Math.max(1, AudioService.sinkMaxVolume))
+                        property real acc: 0
+                        function set(v) { if (!audio) return; SessionData.suppressOSDTemporarily(); AudioService.setVolume(Math.round(v)) }
+                        // touchpad: deltas chicos que se juntan hasta un clic de rueda (5%)
+                        function wheel(dy) { acc += dy; const n = Math.trunc(acc / 120); if (n !== 0) { acc -= n * 120; set(pct + n * 5) } }
+                        HoverHandler { id: volHover }
+                        WheelHandler { onWheel: ev => vol.wheel(ev.angleDelta.y) }
+
+                        Row {
+                            anchors.centerIn: parent
+                            spacing: 8
+                            Ctl { anchors.verticalCenter: parent.verticalCenter; size: 17; name: vol.muted || vol.pct === 0 ? "volume_off" : vol.pct < 40 ? "volume_down" : "volume_up"
+                                action: () => { SessionData.suppressOSDTemporarily(); AudioService.toggleMute() } }
+                            Ctl { anchors.verticalCenter: parent.verticalCenter; size: 15; name: "remove"; action: () => vol.set(vol.pct - 5) }
+                            Item {
+                                id: volTrack
+                                anchors.verticalCenter: parent.verticalCenter
+                                width: 110; height: 20
+                                Rectangle { anchors.verticalCenter: parent.verticalCenter; width: parent.width; height: 4; radius: 2; color: Theme.withAlpha(Theme.surfaceText, 0.12) }
+                                Rectangle {
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    width: Math.max(4, parent.width * vol.ratio); height: 4; radius: 2
+                                    color: Theme.surfaceText; opacity: vol.muted ? 0.3 : 0.9
+                                    Behavior on width { NumberAnimation { duration: 120; easing.type: Easing.OutCubic } }
+                                }
+                                Rectangle {
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    x: Math.max(0, Math.min(parent.width - width, parent.width * vol.ratio - width / 2))
+                                    width: volMa.pressed ? 13 : 11; height: width; radius: width / 2
+                                    color: Theme.surfaceText
+                                    opacity: volHover.hovered ? 1 : 0
+                                    Behavior on opacity { NumberAnimation { duration: 150 } }
+                                }
+                                MouseArea {
+                                    id: volMa
+                                    anchors.fill: parent; cursorShape: Qt.PointingHandCursor
+                                    onPressed: m => vol.set(Math.max(0, Math.min(1, m.x / width)) * AudioService.sinkMaxVolume)
+                                    onPositionChanged: m => vol.set(Math.max(0, Math.min(1, m.x / width)) * AudioService.sinkMaxVolume)
+                                }
+                            }
+                            Ctl { anchors.verticalCenter: parent.verticalCenter; size: 15; name: "add"; action: () => vol.set(vol.pct + 5) }
+                            StyledText {
+                                anchors.verticalCenter: parent.verticalCenter
+                                width: 30; horizontalAlignment: Text.AlignRight
+                                text: vol.muted ? "—" : vol.pct + "%"
+                                font.pixelSize: 11; font.features: { "tnum": 1 }; color: Theme.surfaceText; opacity: 0.6
+                            }
+                        }
+                    }
                 }
 
                 // Letra: la línea actual centrada y resaltada; clic en una línea salta a ese punto
@@ -307,13 +386,14 @@ exec cava -p "$c" < /dev/null`]
                     }
                 }
 
-                // Solo con `musica` (mpv): abrir/ocultar la ventana de letra y quitar la música (cierra mpv)
+                // ✕ cierra esta vista y la música sigue. Solo con `musica` (mpv): abrir/ocultar su ventana
+                // de letra y parar la música (cierra mpv)
                 Row {
                     anchors { right: parent.right; top: parent.top }
-                    visible: root.isMusica
                     spacing: 14
-                    Ctl { size: 18; name: "open_in_new"; action: () => ventanaProc.running = true }
-                    Ctl { size: 18; name: "close"; action: () => quitProc.running = true }
+                    Ctl { size: 18; visible: root.isMusica; name: "open_in_new"; action: () => ventanaProc.running = true }
+                    Ctl { size: 18; visible: root.isMusica; name: "stop_circle"; action: () => { root.closePopout(); root.stop() } }
+                    Ctl { size: 18; name: "close"; action: () => root.closePopout() }
                 }
             }
         }
@@ -326,7 +406,8 @@ exec cava -p "$c" < /dev/null`]
             Ctl { anchors.horizontalCenter: parent.horizontalCenter; visible: root.playing; size: 16; name: "skip_previous"; action: () => root.player.previous() }
             Waves { anchors.horizontalCenter: parent.horizontalCenter; visible: root.playing; width: 24; height: 22 }
             Ctl { anchors.horizontalCenter: parent.horizontalCenter; visible: root.playing; size: 16; name: "skip_next"; action: () => root.player.next() }
-            DankIcon { anchors.horizontalCenter: parent.horizontalCenter; visible: !root.playing; name: "music_note"; size: 16; color: Theme.surfaceText; opacity: 0.5 }
+            Ctl { anchors.horizontalCenter: parent.horizontalCenter; visible: !root.playing; size: 18; name: "play_arrow"; action: () => root.play() }
+            Ctl { anchors.horizontalCenter: parent.horizontalCenter; size: 16; name: "stop"; action: () => root.stop() }
         }
     }
 }

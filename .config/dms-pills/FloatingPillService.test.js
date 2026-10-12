@@ -122,14 +122,6 @@ const gb = { x: 100, y: 1160, w: 60, h: 36 };
 a.equal(_blocked("S", gb, "p1"), false);
 a.equal(_blocked("S", gb, ""), true);
 rects = {};
-// Pantalla nueva: copia las píldoras de otra con ids propios; si ya tiene, no toca nada
-cfg = { floatingPills: [{ id: "a", screen: "S", edge: "top", widgets: ["clock"] }] };
-seedScreen("d", "T");
-a.equal(cfg.floatingPills.length, 2);
-const t = cfg.floatingPills[1];
-a.ok(t.screen === "T" && t.id !== "a" && t.widgets[0] === "clock");
-t.widgets.push("x"); a.equal(cfg.floatingPills[0].widgets.length, 1);
-seedScreen("d", "T"); seedScreen("d", "S"); a.equal(cfg.floatingPills.length, 2);
 // Esquinas: con una píldora arriba a la izquierda, otra en esa esquina (arriba o al lado) queda bloqueada y la de
 // la esquina no se mueve; en la esquina libre de abajo a la izquierda sí entra, pegada al borde
 cfg = { leftWidgets: [], centerWidgets: [], rightWidgets: [], floatingPills: [{ id: "c", screen: "S", edge: "top", align: "start", pos: 3, widgets: ["zen"] }, { id: "m", screen: "S", edge: "bottom", align: "center", pos: 960, widgets: ["x"] }] };

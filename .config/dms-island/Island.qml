@@ -422,6 +422,37 @@ FocusScope {
         }
     }
 
+    component VolButton: Rectangle {
+        id: vb
+        property string icon
+        property real iconSize: 16
+        property bool accent: false
+        signal clicked
+        implicitWidth: 28
+        implicitHeight: 28
+        radius: 14
+        color: vbMouse.containsMouse ? Qt.rgba(1, 1, 1, 0.1) : "transparent"
+        scale: vbMouse.pressed ? 0.9 : 1
+        Behavior on scale {
+            NumberAnimation {
+                duration: 90
+            }
+        }
+        DankIcon {
+            anchors.centerIn: parent
+            name: vb.icon
+            size: vb.iconSize
+            color: vb.accent ? root.moon : root.mist
+        }
+        MouseArea {
+            id: vbMouse
+            anchors.fill: parent
+            hoverEnabled: true
+            cursorShape: Qt.PointingHandCursor
+            onClicked: vb.clicked()
+        }
+    }
+
     component Orbit: Shape {
         id: orbit
         property real from: 0
@@ -1009,11 +1040,175 @@ FocusScope {
                         radius: 5
                         color: root.moon
                     }
+                    // rueda sobre el planeta = volumen
+                    MouseArea {
+                        anchors.centerIn: parent
+                        width: planet.d
+                        height: planet.d
+                        acceptedButtons: Qt.NoButton
+                        onWheel: wheel => volumeBar.wheel(wheel.angleDelta.y)
+                    }
+                }
+
+                // Volumen sin OSD: cápsula de vidrio con icono (silencio), −, barrita (clic, arrastre o rueda), + y %
+                Rectangle {
+                    id: volumeBar
+                    Layout.alignment: Qt.AlignHCenter
+                    Layout.topMargin: 16
+                    implicitWidth: volRow.implicitWidth + 28
+                    implicitHeight: 40
+                    radius: 20
+                    color: Theme.withAlpha(root.ink, 0.45)
+                    border.width: 1
+                    border.color: volHover.hovered ? Qt.rgba(1, 1, 1, 0.22) : Qt.rgba(1, 1, 1, 0.1)
+                    opacity: AudioService.sink?.audio ? 1 : 0.4
+                    Behavior on border.color {
+                        ColorAnimation {
+                            duration: 200
+                        }
+                    }
+
+                    readonly property bool muted: AudioService.sink?.audio?.muted ?? false
+                    readonly property int pct: Math.round((AudioService.sink?.audio?.volume ?? 0) * 100)
+                    readonly property real ratio: AudioService.sinkMaxVolume > 0 ? Math.min(1, pct / AudioService.sinkMaxVolume) : 0
+                    property real acc: 0
+
+                    function set(v) {
+                        if (!AudioService.sink?.audio)
+                            return;
+                        SessionData.suppressOSDTemporarily();
+                        AudioService.setVolume(Math.round(v));
+                    }
+                    function nudge(step) {
+                        set(pct + step);
+                    }
+                    // el touchpad manda deltas chiquitos: se acumulan hasta un "clic" de rueda (5%)
+                    function wheel(dy) {
+                        acc += dy;
+                        const n = Math.trunc(acc / 120);
+                        if (n !== 0) {
+                            acc -= n * 120;
+                            nudge(n * 5);
+                        }
+                    }
+
+                    HoverHandler {
+                        id: volHover
+                    }
+                    WheelHandler {
+                        onWheel: ev => volumeBar.wheel(ev.angleDelta.y)
+                    }
+
+                    Row {
+                        id: volRow
+                        anchors.centerIn: parent
+                        spacing: 6
+
+                        VolButton {
+                            anchors.verticalCenter: parent.verticalCenter
+                            icon: volumeBar.muted || volumeBar.pct === 0 ? "volume_off" : volumeBar.pct < 40 ? "volume_down" : "volume_up"
+                            iconSize: 18
+                            accent: !volumeBar.muted
+                            onClicked: {
+                                SessionData.suppressOSDTemporarily();
+                                AudioService.toggleMute();
+                            }
+                        }
+                        VolButton {
+                            anchors.verticalCenter: parent.verticalCenter
+                            icon: "remove"
+                            onClicked: volumeBar.nudge(-5)
+                        }
+                        Item {
+                            id: track
+                            anchors.verticalCenter: parent.verticalCenter
+                            width: 140
+                            height: 28
+                            readonly property real fill: width * volumeBar.ratio
+                            Rectangle {
+                                anchors.verticalCenter: parent.verticalCenter
+                                width: parent.width
+                                height: 4
+                                radius: 2
+                                color: Qt.rgba(1, 1, 1, 0.1)
+                            }
+                            // mismo degradado que la hora: luna → color del fondo
+                            Rectangle {
+                                anchors.verticalCenter: parent.verticalCenter
+                                width: Math.max(4, track.fill)
+                                height: 4
+                                radius: 2
+                                opacity: volumeBar.muted ? 0.35 : 1
+                                gradient: Gradient {
+                                    orientation: Gradient.Horizontal
+                                    GradientStop {
+                                        position: 0
+                                        color: root.moon
+                                    }
+                                    GradientStop {
+                                        position: 1
+                                        color: Theme.primary
+                                    }
+                                }
+                                Behavior on width {
+                                    NumberAnimation {
+                                        duration: 120
+                                        easing.type: Easing.OutCubic
+                                    }
+                                }
+                            }
+                            // perilla: aparece al pasar el mouse
+                            Rectangle {
+                                anchors.verticalCenter: parent.verticalCenter
+                                x: Math.max(0, Math.min(track.width - width, track.fill - width / 2))
+                                width: trackMouse.pressed ? 14 : 12
+                                height: width
+                                radius: width / 2
+                                color: root.moon
+                                opacity: volHover.hovered ? 1 : 0
+                                Behavior on opacity {
+                                    NumberAnimation {
+                                        duration: 180
+                                    }
+                                }
+                                Behavior on x {
+                                    NumberAnimation {
+                                        duration: 120
+                                        easing.type: Easing.OutCubic
+                                    }
+                                }
+                            }
+                            MouseArea {
+                                id: trackMouse
+                                anchors.fill: parent
+                                cursorShape: Qt.PointingHandCursor
+                                onPressed: mouse => volumeBar.set(Math.max(0, Math.min(1, mouse.x / width)) * AudioService.sinkMaxVolume)
+                                onPositionChanged: mouse => volumeBar.set(Math.max(0, Math.min(1, mouse.x / width)) * AudioService.sinkMaxVolume)
+                            }
+                        }
+                        VolButton {
+                            anchors.verticalCenter: parent.verticalCenter
+                            icon: "add"
+                            onClicked: volumeBar.nudge(5)
+                        }
+                        Text {
+                            anchors.verticalCenter: parent.verticalCenter
+                            width: 38
+                            horizontalAlignment: Text.AlignRight
+                            text: volumeBar.muted ? "—" : volumeBar.pct + "%"
+                            font.family: root.sans
+                            font.pixelSize: 13
+                            font.features: {
+                                "tnum": 1
+                            }
+                            color: root.mist
+                        }
+                    }
                 }
 
                 Text {
                     Layout.alignment: Qt.AlignHCenter
-                    Layout.topMargin: 30
+                    Layout.topMargin: 18
                     readonly property int h: clock.date.getHours()
                     readonly property string first: (UserInfoService.fullName || UserInfoService.username || Quickshell.env("USER")).split(" ")[0]
                     text: (h >= 5 && h < 12 ? "Buenos días, " : h >= 12 && h < 19 ? "Buenas tardes, " : "Buenas noches, ") + first

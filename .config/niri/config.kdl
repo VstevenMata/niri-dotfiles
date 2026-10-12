@@ -249,6 +249,9 @@ binds {
     Mod+L hotkey-overlay-title="Ocultar/mostrar privados al compartir" { spawn "sh" "-c" "$HOME/.local/bin/niri-toggle-ocultar"; }
     Mod+Shift+A hotkey-overlay-title="Elegir salida de audio" { spawn "sh" "-c" "$HOME/.local/bin/audio-salida"; }
     // Reemplaza el dash de fondos de DMS por el carrusel (~/.config/quickshell/wallpicker); vuelve a pulsar para cerrar
+    // Editor de píldoras (plugin pillManager); reemplaza las columnas en pestañas de DMS, que pasan a Super+Alt+W
+    Mod+W hotkey-overlay-title="Editar píldoras" { spawn "dms" "ipc" "call" "pills" "toggle"; }
+    Mod+Alt+W { toggle-column-tabbed-display; }
     Mod+Y hotkey-overlay-title="Carrusel de fondos" { spawn "sh" "-c" "qs kill -c wallpicker >/dev/null 2>&1 || WP_OUTPUT=$(niri msg -j focused-output | jq -r .name) qs -c wallpicker"; }
 }
 

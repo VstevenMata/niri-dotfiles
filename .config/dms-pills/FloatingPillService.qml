@@ -453,19 +453,6 @@ Singleton {
 
     // ---- cambios en la config ----
 
-    // Si screen no tiene píldoras, le copia las de la primera pantalla que tenga (con ids nuevos);
-    // a partir de ahí cada pantalla mueve las suyas sin tocar las de las demás.
-    function seedScreen(barId, screen) {
-        const pills = SettingsData.getBarConfig(barId)?.floatingPills || [];
-        if (!screen || !pills.length || pills.some(p => p.screen === screen))
-            return;
-        const from = pills[0].screen;
-        const copy = pills.filter(p => p.screen === from).map(p => Object.assign(JSON.parse(JSON.stringify(p)), { id: _newId(), screen: screen }));
-        SettingsData.updateBarConfig(barId, {
-            floatingPills: pills.concat(copy)
-        });
-    }
-
     // La barra es la misma en todas las pantallas y las píldoras son de cada una: un widget que entra a la barra
     // se quita de las píldoras de las otras pantallas (si no, sale dos veces allí).
     function _intoBar(pills, screen, widgets) {

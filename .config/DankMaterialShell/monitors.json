@@ -6,22 +6,10 @@
       "name": "",
       "outputs": {
         "HDMI-A-1": {
-          "mode": "1920x1080@60.000",
-          "position": {
-            "x": 1920,
-            "y": 0
-          },
-          "scale": 1,
-          "transform": "Normal",
-          "vrr": false,
-          "disabled": false,
-          "niri": {}
-        },
-        "DP-3": {
-          "mode": "1920x1080@60.000",
+          "mode": "1920x1080@180.003",
           "position": {
             "x": 0,
-            "y": 0
+            "y": 1200
           },
           "scale": 1,
           "transform": "Normal",
@@ -33,7 +21,19 @@
           "mode": "1920x1200@60.003",
           "position": {
             "x": 3840,
-            "y": 0
+            "y": 1080
+          },
+          "scale": 1,
+          "transform": "Normal",
+          "vrr": false,
+          "disabled": false,
+          "niri": {}
+        },
+        "DP-3": {
+          "mode": "1920x1080@60.000",
+          "position": {
+            "x": 1920,
+            "y": 1200
           },
           "scale": 1,
           "transform": "Normal",
